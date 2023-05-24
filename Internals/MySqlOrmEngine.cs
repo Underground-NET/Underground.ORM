@@ -12,13 +12,15 @@ namespace MySqlOrm.Core.Internals
 {
     public class MySqlOrmEngine
     {
-        private static List<(MethodInfo, OrmFunctionScopeAttribute)> Functions = new();
-        private static List<(MethodInfo, OrmProcedureScopeAttribute)> Procedures = new();
+        private static readonly List<(MethodInfo, OrmFunctionScopeAttribute)> Functions = new();
+        private static readonly List<(MethodInfo, OrmProcedureScopeAttribute)> Procedures = new();
 
         private MySqlConnection _connection;
+        private string _connectionString;
 
-        public MySqlOrmEngine()
+        public MySqlOrmEngine(string connectionString)
         {
+            _connectionString = connectionString;
         }
 
         static MySqlOrmEngine()
@@ -49,13 +51,13 @@ namespace MySqlOrm.Core.Internals
             }
         }
 
-        public async Task ConnectAsync(string connectionString)
+        public async Task ConnectAsync()
         {
-            _connection = new MySqlConnection(connectionString);
+            _connection = new MySqlConnection(_connectionString);
             await _connection.OpenAsync();
         }
 
-        public MySqlCommand ObterCommandAsync()
+        public MySqlCommand GetCommand()
         {
             return _connection.CreateCommand();
         }
@@ -130,7 +132,7 @@ namespace MySqlOrm.Core.Internals
 
             if (functionAttribute == null)
             {
-                throw new NotImplementedException($"Atributo '{nameof(OrmFunctionScopeAttribute)}' não definido para este método!");
+                throw new NotImplementedException($"Atributo '{nameof(OrmFunctionScopeAttribute)}' não definido para este método");
             }
 
             var returnType = (Type)((dynamic)expression).ReturnType;
@@ -142,7 +144,9 @@ namespace MySqlOrm.Core.Internals
                 (ReadOnlyCollection<ParameterExpression>)((dynamic)expression).Parameters;
 
             var parametersIn = parameters
-                .Select(x => new ParameterDbType(GetDbType(x.Type), x.Type)).ToList();
+                .Select(x => new ParameterDbType(x.Name,
+                                                                GetDbType(x.Type), 
+                                                                 x.Type)).ToList();
 
             #endregion
 
@@ -152,6 +156,12 @@ namespace MySqlOrm.Core.Internals
                                                         parametersIn, 
                                                         new(), 
                                                         new());
+
+            var command = GetCommand();
+
+            command.CommandType = System.Data.CommandType.Text;
+            command.CommandText = createStatement;
+            var affected = command.ExecuteNonQuery();
         }
 
         private string TranslateToPlMySql(MethodInfo method,
@@ -167,6 +177,14 @@ namespace MySqlOrm.Core.Internals
             var nds = (NamespaceDeclarationSyntax)root.Members[0];
             var cds = (ClassDeclarationSyntax)nds.Members[0];
 
+            var sb = new StringBuilder();
+
+            var parametersInFunction = string.Join(", ", parametersIn.Select(x => $"`{x.Argument}` {x.DbType}"));
+
+            sb.AppendLine($"CREATE FUNCTION `{functionScopeAttribute.Name}` ({parametersInFunction})");
+            sb.AppendLine($"RETURNS {parameterReturns.DbType}");
+            sb.AppendLine("BEGIN");
+
             foreach (var ds in cds.Members)
             {
                 if (ds is MethodDeclarationSyntax)
@@ -176,22 +194,14 @@ namespace MySqlOrm.Core.Internals
 
                     if (methodName == method.Name)
                     {
-                        // TODO: Desenvolver lógicas de tradução C# para MySql
-
+                        // TODO: Desenvolver regras para tradução de C# para MySql
+                        sb.AppendLine("RETURN null;");
                         break;
                     }
                 }
             }
-
-            var sb = new StringBuilder();
-
-            sb.AppendLine("DELIMITER $$");
-            sb.AppendLine("CREATE FUNCTION `new_function` ()");
-            sb.AppendLine("RETURNS INTEGER");
-            sb.AppendLine("BEGIN");
-            sb.AppendLine("RETURN 1;");
-            sb.AppendLine("END$$");
-            sb.AppendLine("DELIMITER;");
+            
+            sb.AppendLine("END;");
 
             return sb.ToString();
         }
@@ -207,7 +217,7 @@ namespace MySqlOrm.Core.Internals
             {
                 foreach (var genericType in returnType.GenericTypeArguments)
                 {
-                    dbType.AddSubType(GetDbType(genericType), genericType);
+                    dbType.AddSubType(genericType.Name, GetDbType(genericType), genericType);
                 }
             }
 
@@ -224,7 +234,7 @@ namespace MySqlOrm.Core.Internals
             }
             else if (returnType == typeof(string))
             {
-                dbType = "VARCHAR()";
+                dbType = "VARCHAR(255)";
             }
             else if (returnType == typeof(bool))
             {
@@ -244,11 +254,11 @@ namespace MySqlOrm.Core.Internals
             }
             else if (returnType == typeof(decimal))
             {
-                dbType = "DECIMAL()";
+                dbType = "DECIMAL";
             }
             else if (returnType == typeof(double))
             {
-                dbType = "DECIMAL()";
+                dbType = "DECIMAL";
             }
             else if (returnType == typeof(byte[]))
             {
