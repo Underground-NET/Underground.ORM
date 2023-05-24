@@ -1,7 +1,7 @@
-﻿namespace MySqlOrm
+﻿namespace MySqlOrm.Core
 {
     public abstract class MySqlOrmEntity
     {
-        public long Id { get; set; }    
+        public long Id { get; set; }
     }
 }

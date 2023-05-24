@@ -1,4 +1,4 @@
-﻿namespace MySqlOrm
+﻿namespace MySqlOrm.Core
 {
     public class TableEntity : MySqlOrmEntity
     {

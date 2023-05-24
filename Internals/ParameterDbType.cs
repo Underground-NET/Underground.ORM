@@ -33,7 +33,5 @@
                 return new ParameterDbType();
             }
         }
-
-        
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MySqlConnector;
 using MySqlOrm.Core.Attributes;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
@@ -89,43 +90,36 @@ namespace MySqlOrm.Core.Internals
 
         public void RunFunction<T1>(Func<T1> function)
         {
-            var expression = (Expression<Func<T1>>)(() => function());
-            RunFunctionInternal(function, function.GetMethodInfo(), expression, Array.Empty<object?>());
+            RunFunctionInternal(function, function.GetMethodInfo(), Array.Empty<object?>());
         }
 
         public void RunFunction<T1, T2>(Func<T1, T2> function, T1 arg1)
         {
-            var expression = (Expression<Func<T1, T2>>)((arg1) => function(arg1));
-            RunFunctionInternal(function, function.GetMethodInfo(), expression, new object?[] { arg1 });
+            RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1 });
         }
 
         public void RunFunction<T1, T2, T3>(Func<T1, T2, T3> function, T1 arg1, T2 arg2)
         {
-            var expression = (Expression<Func<T1, T2, T3>>)((arg1, arg2) => function(arg1, arg2));
-            RunFunctionInternal(function, function.GetMethodInfo(), expression, new object?[] { arg1, arg2 });
+            RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2 });
         }
 
         public void RunFunction<T1, T2, T3, T4>(Func<T1, T2, T3, T4> function, T1 arg1, T2 arg2, T3 arg3)
         {
-            var expression = (Expression<Func<T1, T2, T3, T4>>)((arg1, arg2, arg3) => function(arg1, arg2, arg3));
-            RunFunctionInternal(function, function.GetMethodInfo(), expression, new object?[] { arg1, arg2, arg3 });
+            RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3 });
         }
 
         public void RunFunction<T1, T2, T3, T4, T5>(Func<T1, T2, T3, T4, T5> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
         {
-            var expression = (Expression<Func<T1, T2, T3, T4, T5>>)((arg1, arg2, arg3, arg4) => function(arg1, arg2, arg3, arg4));
-            RunFunctionInternal(function, function.GetMethodInfo(), expression, new object?[] { arg1, arg2, arg3, arg4 });
+            RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4 });
         }
 
         public void RunFunction<T1, T2, T3, T4, T5, T6>(Func<T1, T2, T3, T4, T5, T6> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
         {
-            var expression = (Expression<Func<T1, T2, T3, T4, T5, T6>>)((arg1, arg2, arg3, arg4, arg5) => function(arg1, arg2, arg3, arg4, arg5));
-            RunFunctionInternal(function, function.GetMethodInfo(), expression, new object?[] { arg1, arg2, arg3, arg4, arg5 });
+            RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4, arg5 });
         }
 
         private void RunFunctionInternal(object function, 
                                          MethodInfo method, 
-                                         Expression expression, 
                                          object?[] values)
         {
             var functionAttribute = method.GetCustomAttribute<OrmFunctionScopeAttribute>();
@@ -135,18 +129,17 @@ namespace MySqlOrm.Core.Internals
                 throw new NotImplementedException($"Atributo '{nameof(OrmFunctionScopeAttribute)}' não definido para este método");
             }
 
-            var returnType = (Type)((dynamic)expression).ReturnType;
+            var returnType = method.ReturnType;
             var returnDbType = GetReturnDbType(returnType);
 
             #region ParametersIn
 
-            var parameters =
-                (ReadOnlyCollection<ParameterExpression>)((dynamic)expression).Parameters;
+            var parameters = method.GetParameters();
 
             var parametersIn = parameters
                 .Select(x => new ParameterDbType(x.Name,
-                                                                GetDbType(x.Type), 
-                                                                 x.Type)).ToList();
+                                                            GetDbType(x.ParameterType), 
+                                                            x.ParameterType)).ToList();
 
             #endregion
 
@@ -156,11 +149,12 @@ namespace MySqlOrm.Core.Internals
                                                         parametersIn, 
                                                         new(), 
                                                         new());
+            Debug.Print(createStatement);
 
             var command = GetCommand();
-
             command.CommandType = System.Data.CommandType.Text;
             command.CommandText = createStatement;
+
             var affected = command.ExecuteNonQuery();
         }
 
