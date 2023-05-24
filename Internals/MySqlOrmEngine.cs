@@ -3,9 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MySqlConnector;
 using MySqlOrm.Core.Attributes;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 
@@ -88,37 +86,37 @@ namespace MySqlOrm.Core.Internals
 
         }
 
-        public void RunFunction<T1>(Func<T1> function)
+        public string RunFunction<T1>(Func<T1> function)
         {
-            RunFunctionInternal(function, function.GetMethodInfo(), Array.Empty<object?>());
+            return RunFunctionInternal(function, function.GetMethodInfo(), Array.Empty<object?>());
         }
 
-        public void RunFunction<T1, T2>(Func<T1, T2> function, T1 arg1)
+        public string RunFunction<T1, T2>(Func<T1, T2> function, T1 arg1)
         {
-            RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1 });
+            return RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1 });
         }
 
-        public void RunFunction<T1, T2, T3>(Func<T1, T2, T3> function, T1 arg1, T2 arg2)
+        public string RunFunction<T1, T2, T3>(Func<T1, T2, T3> function, T1 arg1, T2 arg2)
         {
-            RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2 });
+            return RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2 });
         }
 
-        public void RunFunction<T1, T2, T3, T4>(Func<T1, T2, T3, T4> function, T1 arg1, T2 arg2, T3 arg3)
+        public string RunFunction<T1, T2, T3, T4>(Func<T1, T2, T3, T4> function, T1 arg1, T2 arg2, T3 arg3)
         {
-            RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3 });
+            return RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3 });
         }
 
-        public void RunFunction<T1, T2, T3, T4, T5>(Func<T1, T2, T3, T4, T5> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
+        public string RunFunction<T1, T2, T3, T4, T5>(Func<T1, T2, T3, T4, T5> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
         {
-            RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4 });
+            return RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4 });
         }
 
-        public void RunFunction<T1, T2, T3, T4, T5, T6>(Func<T1, T2, T3, T4, T5, T6> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
+        public string RunFunction<T1, T2, T3, T4, T5, T6>(Func<T1, T2, T3, T4, T5, T6> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
         {
-            RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4, arg5 });
+            return RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4, arg5 });
         }
 
-        private void RunFunctionInternal(object function, 
+        private string RunFunctionInternal(object function, 
                                          MethodInfo method, 
                                          object?[] values)
         {
@@ -156,6 +154,8 @@ namespace MySqlOrm.Core.Internals
             command.CommandText = createStatement;
 
             var affected = command.ExecuteNonQuery();
+
+            return createStatement;
         }
 
         private string TranslateToPlMySql(MethodInfo method,
@@ -189,7 +189,8 @@ namespace MySqlOrm.Core.Internals
                     if (methodName == method.Name)
                     {
                         // TODO: Desenvolver regras para tradução de C# para MySql
-                        sb.AppendLine("RETURN null;");
+
+                        ConvertMethodBlockSyntax(mds.Body!, csFileContent, sb);
                         break;
                     }
                 }
@@ -198,6 +199,94 @@ namespace MySqlOrm.Core.Internals
             sb.AppendLine("END;");
 
             return sb.ToString();
+        }
+
+        private void ConvertMethodBlockSyntax(BlockSyntax block, string csFileContent, StringBuilder sb)
+        {
+            var statements = block.Statements;
+
+            foreach (var statement in statements)
+            {
+                string codeLine = csFileContent[statement.Span.Start..statement.Span.End];
+                string fullCodeLine = csFileContent[statement.FullSpan.Start..statement.FullSpan.End];
+                var fullCodeLines = fullCodeLine.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                                                     .Select(x => x.Trim()).ToList();
+
+                #region Comments
+
+                var comments = fullCodeLines.Where(x => x.StartsWith("//")).ToList();
+
+                foreach (var comment in comments)
+                {
+                    sb.AppendLine("# " + comment[2..].Trim());
+                }
+
+                #endregion
+
+                #region Declarations
+
+                if (statement is LocalDeclarationStatementSyntax)
+                {
+                    var lds = (LocalDeclarationStatementSyntax)statement;
+
+                    var vds = lds.Declaration;
+                    string contentDeclaration = csFileContent[vds.Span.Start..vds.Span.End];
+                    string fullContentDeclaration = csFileContent[vds.FullSpan.Start..vds.FullSpan.End];
+
+                    var variables = vds.Variables;
+
+                    foreach (var v in variables)
+                    {
+                        string contentVariable = csFileContent[v.Span.Start..v.Span.End];
+                        string fullContentVariable = csFileContent[v.FullSpan.Start..v.FullSpan.End];
+
+                        sb.AppendLine(ConvertDeclarationToMySql(contentDeclaration, contentVariable) + ";");
+                    }
+                }
+
+                #endregion
+
+                #region Return
+
+                if (statement is ReturnStatementSyntax)
+                {
+                    var rss = (ReturnStatementSyntax)statement;
+
+                    string contentExpression = csFileContent[rss.Expression.Span.Start..rss.Expression.Span.End];
+                    string fullContentExpression = csFileContent[rss.Expression.FullSpan.Start..rss.Expression.FullSpan.End];
+
+                    sb.AppendLine($"RETURN {contentExpression};");
+                }
+
+                #endregion
+            }
+        }
+
+        private string ConvertDeclarationToMySql(string contentDeclaration, 
+                                                 string contentVariable)
+        {
+            string[] linesDeclaration = contentDeclaration.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string[] linesVariable = contentVariable.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            var typeName = linesDeclaration[0];
+            var variableName = linesVariable[0];
+
+            // TODO: Pegar o tipo com o método GetDbType()
+
+            if (typeName == "List<string>")
+            {
+                return $"DECLARE `{variableName}` JSON DEFAULT JSON_ARRAY()";
+            }
+            else if (typeName == "string")
+            {
+                return $"DECLARE `{variableName}` VARCHAR(255) DEFAULT \"\"";
+            }
+            else if (typeName == "int")
+            {
+                return $"DECLARE `{variableName}` INT DEFAULT 0";
+            }
+
+            throw new NotImplementedException($"Tipo de declaração '{contentDeclaration}' não implementada");
         }
 
         private ParameterDbType GetReturnDbType(Type returnType)
