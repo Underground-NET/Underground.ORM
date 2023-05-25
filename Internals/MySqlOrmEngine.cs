@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.VisualBasic;
 using MySqlConnector;
 using MySqlOrm.Core.Attributes;
 using System.Diagnostics;
@@ -236,7 +237,6 @@ namespace MySqlOrm.Core.Internals
 
                     var variables = vds.Variables;
 
-                    int index = 0;
                     foreach (var v in variables)
                     {
                         string contentVariable = csFileContent[v.Span.Start..v.Span.End];
@@ -244,9 +244,7 @@ namespace MySqlOrm.Core.Internals
 
                         sb.AppendLine(ConvertDeclarationToMySql(v, 
                                                                 contentDeclaration, 
-                                                                contentVariable, 
-                                                                index++, 
-                                                                variables.Count) + ";");
+                                                                contentVariable) + ";");
                     }
                 }
 
@@ -270,14 +268,17 @@ namespace MySqlOrm.Core.Internals
 
         private string ConvertDeclarationToMySql(VariableDeclaratorSyntax v,
                                                  string contentDeclaration,
-                                                 string contentVariable,
-                                                 int index,
-                                                 int count)
+                                                 string contentVariable)
         {
             StringBuilder sb = new();
             object? valueInitialization = null;
+            object? valueCreateInitialization = null;
             bool valueInitializationDefaultNull = false;
             var variableName = v.Identifier.ValueText;
+
+            bool castFunction = false;
+            string openCastFunction = "";
+            string closeCastFunction = "";
 
             var parent = v.Parent as VariableDeclarationSyntax;
             var parentParent = parent!.Parent as LocalDeclarationStatementSyntax;
@@ -288,10 +289,15 @@ namespace MySqlOrm.Core.Internals
             var nullableTypeSyntax = variableTypeSyntax as NullableTypeSyntax;
             var genericNameSyntax = variableTypeSyntax as GenericNameSyntax;
             var predefinedTypeSyntax = variableTypeSyntax as PredefinedTypeSyntax;
+            var arrayTypeSyntax = variableTypeSyntax as ArrayTypeSyntax;
+            
+            if (genericNameSyntax != null)
+            {
+                var identifierGenericName = genericNameSyntax.Identifier;
+            }
 
             if (nullableTypeSyntax != null)
             {
-
                 var nullableParent = (VariableDeclarationSyntax)nullableTypeSyntax.Parent!;
                 var declaration = parentParent!.Declaration;
             }
@@ -304,6 +310,8 @@ namespace MySqlOrm.Core.Internals
             var initializer = identifierParent.Initializer;
             var expressionValue = initializer?.Value as ExpressionSyntax;
             var literalValue = initializer?.Value as LiteralExpressionSyntax;
+            var implicitNewCreation = initializer?.Value as ImplicitObjectCreationExpressionSyntax;
+            var arrayCreationValue = initializer?.Value as ArrayCreationExpressionSyntax;
 
             if (literalValue != null)
             {
@@ -311,6 +319,38 @@ namespace MySqlOrm.Core.Internals
 
                 if (valueInitialization == null)
                     valueInitializationDefaultNull = true;
+            }
+            else 
+            {
+                var castExpressionSyntax = initializer?.Value as CastExpressionSyntax;
+                var createExpressionSyntax = initializer?.Value as ObjectCreationExpressionSyntax;
+
+                if (castExpressionSyntax != null)
+                {
+                    var expressionCast = castExpressionSyntax.Expression;
+                    var literalExpressionSyntax = expressionCast as LiteralExpressionSyntax;
+
+                    castFunction = true;
+                    valueInitialization = literalExpressionSyntax!.Token.Value;
+
+                    if (valueInitialization == null)
+                        valueInitializationDefaultNull = true;
+                }
+
+                if (createExpressionSyntax != null)
+                {
+                    var typeCreate = createExpressionSyntax.Type;
+                    var genericNameCreate = typeCreate as GenericNameSyntax;
+                    var identifierCreate = genericNameCreate?.Identifier;
+
+                    if (identifierCreate!.Value.ValueText == "Collection" ||
+                        identifierCreate.Value.ValueText == "List")
+                    {
+                        valueCreateInitialization = "JSON_ARRAY()";
+                    }
+                    else
+                        throw new NotImplementedException($"Criação de declaração '{contentDeclaration}' não suportada");
+                }
             }
 
             #endregion
@@ -328,18 +368,38 @@ namespace MySqlOrm.Core.Internals
                 typeName.StartsWith("Enumerable<") ||
                 typeName.StartsWith("Collection<") ||
                 typeName.StartsWith("ICollection<") ||
-
                 typeName.EndsWith("[]"))
             {
+                if (implicitNewCreation != null || // = new()
+                    arrayCreationValue != null)    // = new[] 
+                {
+                    valueCreateInitialization = "JSON_ARRAY()";
+                }
+
                 sb.Append("JSON");
-            }
-            else if (typeName == "bool" || typeName == "Boolean" || typeName == "System.Boolean")
-            {
-                sb.Append("BOOL");
             }
             else if (typeName == "object" || typeName == "Object" || typeName == "System.Object")
             {
                 sb.Append("JSON");
+            }
+            else if (typeName == "char" || typeName == "Char" || typeName == "System.Char")
+            {
+                if (castFunction) // = (int)126
+                {
+                    if (valueInitialization is int)
+                    {
+                        openCastFunction = "CHAR(";
+                        closeCastFunction = ")";
+                    }
+                    else
+                        throw new NotImplementedException($"Tipo de conversão '{contentDeclaration}'não suportada");
+                }
+
+                sb.Append("CHAR");
+            }
+            else if (typeName == "bool" || typeName == "Boolean" || typeName == "System.Boolean")
+            {
+                sb.Append("BOOL");
             }
             else if (typeName == "sbyte" || typeName == "SByte" || typeName == "System.SByte")
             {
@@ -398,12 +458,20 @@ namespace MySqlOrm.Core.Internals
             }
             else if (valueInitialization != null)
             {
-                if (valueInitialization is string)
+                if (valueInitialization is string || valueInitialization is char)
                 {
                     valueInitialization = $"\"{valueInitialization}\"";
                 }
 
-                sb.Append($" DEFAULT {valueInitialization}");
+                sb.Append(
+                    " DEFAULT "+
+                    $"{openCastFunction}"+
+                    $"{valueInitialization}"+
+                    $"{closeCastFunction}");
+            }
+            else if (valueCreateInitialization != null)
+            {
+                sb.Append($" DEFAULT {valueCreateInitialization}");
             }
 
             return sb.ToString();
@@ -478,6 +546,10 @@ namespace MySqlOrm.Core.Internals
             else if (returnType == typeof(Guid))
             {
                 dbType = "CHAR(36)";
+            }
+            else if (returnType == typeof(char))
+            {
+                dbType = "CHAR";
             }
             else
                 throw new NotImplementedException();
