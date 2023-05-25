@@ -1,7 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.VisualBasic;
 using MySqlConnector;
 using MySqlOrm.Core.Attributes;
 using System.Diagnostics;
@@ -148,12 +147,10 @@ namespace MySqlOrm.Core.Internals
                                                         parametersIn, 
                                                         new(), 
                                                         new());
-            Debug.Print(createStatement);
-
-            var command = GetCommand();
-            command.CommandType = System.Data.CommandType.Text;
-            command.CommandText = createStatement;
-
+            
+            //var command = GetCommand();
+            //command.CommandType = System.Data.CommandType.Text;
+            //command.CommandText = createStatement;
             //var affected = command.ExecuteNonQuery();
 
             return createStatement;
