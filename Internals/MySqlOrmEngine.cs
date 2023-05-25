@@ -322,9 +322,16 @@ namespace MySqlOrm.Core.Internals
 
             sb.Append($"DECLARE `{variableName}` ");
 
-            if (typeName == "List<string>")
+            if (typeName.StartsWith("List<") ||
+                typeName.StartsWith("IList<") ||
+                typeName.StartsWith("IEnumerable<") ||
+                typeName.StartsWith("Enumerable<") ||
+                typeName.StartsWith("Collection<") ||
+                typeName.StartsWith("ICollection<") ||
+
+                typeName.EndsWith("[]"))
             {
-                sb.Append("JSON DEFAULT JSON_ARRAY()");
+                sb.Append("JSON");
             }
             else if (typeName == "bool" || typeName == "Boolean" || typeName == "System.Boolean")
             {
