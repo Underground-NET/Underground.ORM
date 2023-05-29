@@ -3,6 +3,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MySqlConnector;
 using MySqlOrm.Core.Attributes;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
@@ -249,11 +251,13 @@ namespace MySqlOrm.Core.Internals
             }
         }
 
-        private void TranslateDeclarationToMySql(string csFileContent,
+        private List<string> TranslateDeclarationToMySql(string csFileContent,
                                                  VariableDeclarationSyntax declaration,
                                                  List<SyntaxNodeOrToken> descendants,
                                                  StringBuilder mysqlSyntaxOut)
         {
+            List<string> mysqlStatements = new();
+
             Dictionary<int, string> mysqlDeclare = new();
             (int Order, List<string>)? mysqlExpression = null;
             (int Order, string) mysqlDbType;
@@ -311,7 +315,7 @@ namespace MySqlOrm.Core.Internals
                 {
                     defaultValue = false;
 
-                    FinalizeDeclarationStatementMySql(mysqlDeclare, mysqlExpression, mysqlDbType, mysqlSyntaxOut);
+                    mysqlStatements.AddRange(FinalizeDeclarationStatementMySql(mysqlDeclare, mysqlExpression, mysqlDbType, mysqlSyntaxOut));
 
                     string variableName = variableDeclarator.Identifier.ValueText;
 
@@ -330,27 +334,26 @@ namespace MySqlOrm.Core.Internals
                 if (expressionSyntax != null && defaultValue)
                 {
                     var descendantExpression = expressionSyntax.DescendantNodesAndTokensAndSelf().ToList();
-                    var childNodesExpression = expressionSyntax.ChildNodesAndTokens().ToList();
 
-                    var expTranslated = TranslateDeclarationExpressionToMySql(csFileContent,
-                                                                        descendantExpression,
-                                                                        childNodesExpression);
+                    var expTranslated = TranslateDeclarationExpressionToMySql(csFileContent, descendantExpression);
 
-                    FinalizeDeclarationStatementMySql(mysqlDeclare, (5, expTranslated), mysqlDbType, mysqlSyntaxOut);
+                    mysqlStatements.AddRange(FinalizeDeclarationStatementMySql(mysqlDeclare, (5, expTranslated), mysqlDbType, mysqlSyntaxOut));
 
                     defaultValue = false;
                 }
             }
 
-            FinalizeDeclarationStatementMySql(mysqlDeclare, mysqlExpression, mysqlDbType, mysqlSyntaxOut);
+            mysqlStatements.AddRange(FinalizeDeclarationStatementMySql(mysqlDeclare, mysqlExpression, mysqlDbType, mysqlSyntaxOut));
+
+            return mysqlStatements;
         }
 
-        private void FinalizeDeclarationStatementMySql(Dictionary<int, string> mysqlDeclare,
-                                                    (int Order, List<string>)? mysqlExpression,
-                                                    (int Order, string) mysqlDbType,
-                                                    StringBuilder mysqlSyntaxOut)
+        private List<string> FinalizeDeclarationStatementMySql(Dictionary<int, string> mysqlDeclare,
+                                                              (int Order, List<string>)? mysqlExpression,
+                                                              (int Order, string) mysqlDbType,
+                                                              StringBuilder mysqlSyntaxOut)
         {
-            if (!mysqlDeclare.Any()) return;
+            if (!mysqlDeclare.Any()) return new ();
 
             mysqlDeclare.Add(mysqlDbType.Order, mysqlDbType.Item2);
 
@@ -361,17 +364,21 @@ namespace MySqlOrm.Core.Internals
 
             var mysqlStatement = string.Join("", mysqlDeclare.OrderBy(x => x.Key).Select(x => x.Value));
 
-            mysqlSyntaxOut.AppendLine(mysqlStatement);
+            mysqlSyntaxOut.AppendLine(mysqlStatement + ";");
             mysqlDeclare.Clear();
+
+            return new List<string>() { mysqlStatement };
         }
 
         private List<string> TranslateDeclarationExpressionToMySql(string csFileContent,
-                                                        List<SyntaxNodeOrToken> descendantNodesAndTokensAndSelf,
-                                                        List<SyntaxNodeOrToken> childNodesAndTokens)
+                                                        List<SyntaxNodeOrToken> descendants)
         {
             List<string> expression = new();
+            
+            int currentLevel = 0;
+            List<int> closeParentheses = new();
 
-            foreach (var item in descendantNodesAndTokensAndSelf)
+            foreach (var item in descendants)
             {
                 string contentExpression = csFileContent[item.Span.Start..item.Span.End];
 
@@ -381,19 +388,87 @@ namespace MySqlOrm.Core.Internals
                 if (token.Parent != null)
                 {
                     var identifierNameSyntax = token.Parent as IdentifierNameSyntax;
-
-                    string valueText = token.ValueText;
+                    var literalExpressionSyntax = token.Parent as LiteralExpressionSyntax;
+                    var castExpressionSyntax = token.Parent as CastExpressionSyntax;
+                    var binaryExpressionSyntax = token.Parent as BinaryExpressionSyntax;
+                    var parenthesizedExpressionSyntax = token.Parent as ParenthesizedExpressionSyntax;
+                    var predefinedTypeSyntax = token.Parent as PredefinedTypeSyntax;
 
                     if (identifierNameSyntax != null)
                     {
-                        valueText = $"`{valueText}`";
+                        expression.Add($"`{token.ValueText}`");
                     }
+                    else if (literalExpressionSyntax != null)
+                    {
+                        expression.Add(token.Text);
+                    }
+                    else if (castExpressionSyntax != null)
+                    {
+                        var desc = castExpressionSyntax.DescendantNodes().ToList();
 
-                    expression.Add(valueText);
+                        if (token.ValueText == ")")
+                        {
+                            var predefinedType = castExpressionSyntax.Type as PredefinedTypeSyntax;
+
+                            expression.Add(GetCastDbTypeFromToken(predefinedType!.Keyword.ValueText, contentExpression));
+                            expression.Add("(");
+                            closeParentheses.Add(currentLevel);
+                        }
+                    }
+                    else if (binaryExpressionSyntax != null)
+                    {
+                        string operatorToken = binaryExpressionSyntax.OperatorToken.ValueText;
+
+                        expression.Add(operatorToken);
+                    }
+                    else if (parenthesizedExpressionSyntax != null)
+                    { 
+                        string parentheseToken = token.Text;
+
+                        expression.Add(parentheseToken);
+
+                        if (parentheseToken == "(")
+                        {
+                            currentLevel++;
+                        }
+                        else if (parentheseToken == ")")
+                        {
+                            CloseParentheses(expression, currentLevel, closeParentheses);
+
+                            currentLevel--;
+
+                            //CloseParentheses(expression, currentLevel, closeParentheses);
+                        }
+                    }
+                    else
+                    {
+                        if (predefinedTypeSyntax != null) continue;
+
+                        expression.Add(token.Text);
+                    }
                 }
             }
 
+            CloseParentheses(expression, currentLevel, closeParentheses);
             return expression;
+        }
+
+        private void CloseParentheses(List<string> expression, 
+                                      int currentLevel, 
+                                      List<int> closeParentheses)
+        {
+            // Fecha parênteses de métodos e funções injetados pelo tradutor
+            closeParentheses.Where(level => level == currentLevel)
+                .Select((level, i) => new { level, i }).ToList()
+                .ForEach(item =>
+                {
+                    expression.Add(")");
+                });
+
+            while (closeParentheses.Contains(currentLevel))
+            {
+                closeParentheses.Remove(currentLevel);
+            }
         }
 
         private List<string> TranslateExpressionToMySql(string csFileContent,
@@ -425,6 +500,17 @@ namespace MySqlOrm.Core.Internals
             }
 
             return expression;
+        }
+
+        private string GetCastDbTypeFromToken(string tokenType,
+                                              string contentDeclaration)
+        {
+            if (tokenType == "char")
+            {
+                return "CHAR";
+            }
+            else
+                throw new NotImplementedException($"Tipo de conversão '{contentDeclaration}' não suportada");
         }
 
         private string GetDbTypeFromToken(string tokenType, 
