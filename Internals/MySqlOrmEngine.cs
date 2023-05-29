@@ -223,11 +223,9 @@ namespace MySqlOrm.Core.Internals
                 #endregion
 
                 var descendantNodesAndTokensAndSelf = statement.DescendantNodesAndTokensAndSelf().ToList();
-                var childNodesAndTokens = statement.ChildNodesAndTokens().ToList();
 
                 TranslateToMySql(csFileContent, 
                                  descendantNodesAndTokensAndSelf, 
-                                 childNodesAndTokens, 
                                  sb);
 
             }
@@ -235,7 +233,6 @@ namespace MySqlOrm.Core.Internals
 
         private void TranslateToMySql(string csFileContent,
                                       List<SyntaxNodeOrToken> descendantNodesAndTokensAndSelf, 
-                                      List<SyntaxNodeOrToken> childNodesAndTokens, 
                                       StringBuilder sb)
         {
             foreach (var item in descendantNodesAndTokensAndSelf)
@@ -244,37 +241,37 @@ namespace MySqlOrm.Core.Internals
 
                 if (variableDeclaration != null)
                 {
-
-
-                    TranslateDeclarationToMySql(csFileContent, descendantNodesAndTokensAndSelf,
-                                                               childNodesAndTokens,
-                                                               sb);
+                    TranslateDeclarationToMySql(csFileContent, 
+                                                variableDeclaration,
+                                                descendantNodesAndTokensAndSelf,
+                                                sb);
                 }
             }
         }
 
         private void TranslateDeclarationToMySql(string csFileContent,
-                                                 List<SyntaxNodeOrToken> descendantNodesAndTokensAndSelf,
-                                                 List<SyntaxNodeOrToken> childNodesAndTokens,
-                                                 StringBuilder sb)
+                                                 VariableDeclarationSyntax declaration,
+                                                 List<SyntaxNodeOrToken> descendants,
+                                                 StringBuilder mysqlSyntaxOut)
         {
-            List<(int Order, string)> declare = new();
-            List<(int Order, string)> expression = new();
+            Dictionary<int, string> mysqlDeclare = new();
+            (int Order, List<string>)? mysqlExpression = null;
+            (int Order, string) mysqlDbType;
 
             int variablesCount = 0;
             bool defaultValue = false;
 
             #region Predefined Type
-            (int Order, string)? predefinedDbType = null;
 
-            var predefinedTypeSyntax = descendantNodesAndTokensAndSelf.Select(x => x.AsNode()).OfType<PredefinedTypeSyntax>().FirstOrDefault();
-            var predefinedType = descendantNodesAndTokensAndSelf.Select(x => x.AsNode()).OfType<VariableDeclarationSyntax>().FirstOrDefault();
+            var predefinedTypeSyntax = descendants.Select(x => x.AsNode()).OfType<PredefinedTypeSyntax>().FirstOrDefault();
+            var predefinedType = descendants.Select(x => x.AsNode()).OfType<VariableDeclarationSyntax>().FirstOrDefault();
 
+            string dbType;
             if (predefinedTypeSyntax != null)
             {
                 string contentDeclaration = csFileContent[predefinedTypeSyntax.Span.Start..predefinedTypeSyntax.Span.End];
-                string dbType = GetDbTypeFromToken(predefinedTypeSyntax.Keyword.Text, contentDeclaration);
-                predefinedDbType = (3, $" {dbType}");
+                dbType = GetDbTypeFromToken(predefinedTypeSyntax.Keyword.Text, contentDeclaration);
+                
             }
             else if (predefinedType != null)
             {
@@ -290,15 +287,15 @@ namespace MySqlOrm.Core.Internals
                 else
                     variableTypeName = csFileContent[identifierNameSyntax!.Span.Start..identifierNameSyntax.Span.End];
 
-                string dbType = GetDbTypeFromToken(variableTypeName, contentDeclaration);
-                predefinedDbType = (3, $" {dbType}");
+                dbType = GetDbTypeFromToken(variableTypeName, contentDeclaration);
             }
             else
                 throw new NotImplementedException("Predefined type not found");
 
+            mysqlDbType = (3, $" {dbType}");
             #endregion
 
-            foreach (var item in descendantNodesAndTokensAndSelf)
+            foreach (var item in descendants)
             {
                 string contentDeclaration = csFileContent[item.Span.Start..item.Span.End];
 
@@ -314,12 +311,12 @@ namespace MySqlOrm.Core.Internals
                 {
                     defaultValue = false;
 
-                    NewDeclarationStatement(declare, expression, predefinedDbType, sb);
+                    FinalizeDeclarationStatementMySql(mysqlDeclare, mysqlExpression, mysqlDbType, mysqlSyntaxOut);
 
                     string variableName = variableDeclarator.Identifier.ValueText;
 
-                    declare.Add((1, "DECLARE "));
-                    declare.Add((2, $"`{variableName}`"));
+                    mysqlDeclare.Add(1, "DECLARE ");
+                    mysqlDeclare.Add(2, $"`{variableName}`");
                     
                     variablesCount++;
                 }
@@ -327,7 +324,7 @@ namespace MySqlOrm.Core.Internals
                 if (equalsValueClauseSyntax != null)
                 {
                     defaultValue = true;
-                    declare.Add((4, " DEFAULT "));
+                    mysqlDeclare.Add(4, " DEFAULT ");
                 }
 
                 if (expressionSyntax != null && defaultValue)
@@ -339,38 +336,33 @@ namespace MySqlOrm.Core.Internals
                                                                         descendantExpression,
                                                                         childNodesExpression);
 
-                    expression = expTranslated.Select(expression => (5, expression)).ToList();
-                    NewDeclarationStatement(declare, expression, predefinedDbType, sb);
+                    FinalizeDeclarationStatementMySql(mysqlDeclare, (5, expTranslated), mysqlDbType, mysqlSyntaxOut);
 
                     defaultValue = false;
                 }
             }
 
-            NewDeclarationStatement(declare, expression, predefinedDbType, sb);
+            FinalizeDeclarationStatementMySql(mysqlDeclare, mysqlExpression, mysqlDbType, mysqlSyntaxOut);
         }
 
-        private void NewDeclarationStatement(List<(int Order, string)> declare, 
-                                             List<(int Order, string)> expression,
-                                             (int Order, string)? predefinedDbTypeDeclaration,
-                                             StringBuilder sb)
+        private void FinalizeDeclarationStatementMySql(Dictionary<int, string> mysqlDeclare,
+                                                    (int Order, List<string>)? mysqlExpression,
+                                                    (int Order, string) mysqlDbType,
+                                                    StringBuilder mysqlSyntaxOut)
         {
-            if (!declare.Any()) return;
+            if (!mysqlDeclare.Any()) return;
 
-            if (predefinedDbTypeDeclaration != null)
-                if (!declare.Contains(predefinedDbTypeDeclaration.Value))
-                {
-                    declare.Add(predefinedDbTypeDeclaration.Value);
-                }
+            mysqlDeclare.Add(mysqlDbType.Order, mysqlDbType.Item2);
 
-            var declareString = string.Join("", declare.OrderBy(x => x.Order).Select(x => x.Item2));
-            var expressionString = string.Join("", expression.OrderBy(x => x.Order).Select(x => x.Item2));
+            if (mysqlExpression != null)
+                mysqlDeclare.Add(mysqlExpression.Value.Order, string.Join("", mysqlExpression.Value.Item2));
 
-            var final = declareString + expressionString + ";";
+            // MySql Statement: (1)DECLARE (2)`variable` (3)type (4)DEFAULT (5)expression;
 
-            sb.AppendLine(final);
-            
-            declare.Clear();
-            expression.Clear();
+            var mysqlStatement = string.Join("", mysqlDeclare.OrderBy(x => x.Key).Select(x => x.Value));
+
+            mysqlSyntaxOut.AppendLine(mysqlStatement);
+            mysqlDeclare.Clear();
         }
 
         private List<string> TranslateDeclarationExpressionToMySql(string csFileContent,
