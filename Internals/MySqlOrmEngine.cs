@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MySqlConnector;
 using MySqlOrm.Core.Attributes;
-using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 
@@ -222,256 +222,266 @@ namespace MySqlOrm.Core.Internals
 
                 #endregion
 
-                #region Declarations
+                var descendantNodesAndTokensAndSelf = statement.DescendantNodesAndTokensAndSelf().ToList();
+                var childNodesAndTokens = statement.ChildNodesAndTokens().ToList();
 
-                if (statement is LocalDeclarationStatementSyntax)
-                {
-                    var lds = (LocalDeclarationStatementSyntax)statement;
+                TranslateToMySql(csFileContent, 
+                                 descendantNodesAndTokensAndSelf, 
+                                 childNodesAndTokens, 
+                                 sb);
 
-                    var vds = lds.Declaration;
-                    string contentDeclaration = csFileContent[vds.Span.Start..vds.Span.End];
-                    string fullContentDeclaration = csFileContent[vds.FullSpan.Start..vds.FullSpan.End];
-
-                    var variables = vds.Variables;
-
-                    foreach (var v in variables)
-                    {
-                        string contentVariable = csFileContent[v.Span.Start..v.Span.End];
-                        string fullContentVariable = csFileContent[v.FullSpan.Start..v.FullSpan.End];
-
-                        sb.AppendLine(ConvertDeclarationToMySql(v, 
-                                                                contentDeclaration, 
-                                                                contentVariable) + ";");
-                    }
-                }
-
-                #endregion
-
-                #region Return
-
-                if (statement is ReturnStatementSyntax)
-                {
-                    var rss = (ReturnStatementSyntax)statement;
-
-                    string contentExpression = csFileContent[rss.Expression.Span.Start..rss.Expression.Span.End];
-                    string fullContentExpression = csFileContent[rss.Expression.FullSpan.Start..rss.Expression.FullSpan.End];
-
-                    sb.AppendLine($"RETURN {contentExpression};");
-                }
-
-                #endregion
             }
         }
 
-        private string ConvertDeclarationToMySql(VariableDeclaratorSyntax v,
-                                                 string contentDeclaration,
-                                                 string contentVariable)
+        private void TranslateToMySql(string csFileContent,
+                                      List<SyntaxNodeOrToken> descendantNodesAndTokensAndSelf, 
+                                      List<SyntaxNodeOrToken> childNodesAndTokens, 
+                                      StringBuilder sb)
         {
-            StringBuilder sb = new();
-            object? valueInitialization = null;
-            object? valueCreateInitialization = null;
-            bool valueInitializationDefaultNull = false;
-            var variableName = v.Identifier.ValueText;
+            foreach (var item in descendantNodesAndTokensAndSelf)
+            {
+                var variableDeclaration = item.AsNode() as VariableDeclarationSyntax;
 
-            bool castFunction = false;
-            string openCastFunction = "";
-            string closeCastFunction = "";
+                if (variableDeclaration != null)
+                {
 
-            var parent = v.Parent as VariableDeclarationSyntax;
-            var parentParent = parent!.Parent as LocalDeclarationStatementSyntax;
 
-            #region ValueType
+                    TranslateDeclarationToMySql(csFileContent, descendantNodesAndTokensAndSelf,
+                                                               childNodesAndTokens,
+                                                               sb);
+                }
+            }
+        }
 
-            var variableTypeSyntax = parent!.Type;
-            var nullableTypeSyntax = variableTypeSyntax as NullableTypeSyntax;
-            var genericNameSyntax = variableTypeSyntax as GenericNameSyntax;
-            var predefinedTypeSyntax = variableTypeSyntax as PredefinedTypeSyntax;
-            var arrayTypeSyntax = variableTypeSyntax as ArrayTypeSyntax;
+        private void TranslateDeclarationToMySql(string csFileContent,
+                                                 List<SyntaxNodeOrToken> descendantNodesAndTokensAndSelf,
+                                                 List<SyntaxNodeOrToken> childNodesAndTokens,
+                                                 StringBuilder sb)
+        {
+            List<(int Order, string)> declare = new();
+            List<(int Order, string)> expression = new();
+
+            int variablesCount = 0;
+            bool defaultValue = false;
+            (int Order, string)? predefinedDbTypeDeclaration = null;
+
+            #region DeclarationType
+
+            var predefinedTypeSyntax = descendantNodesAndTokensAndSelf.Select(x => x.AsNode()).OfType<PredefinedTypeSyntax>().FirstOrDefault();
+            var predefinedVariableTypeSyntax = descendantNodesAndTokensAndSelf.Select(x => x.AsNode()).OfType<VariableDeclarationSyntax>().FirstOrDefault();
+
+            if (predefinedTypeSyntax != null)
+            {
+                string contentDeclaration = csFileContent[predefinedTypeSyntax.Span.Start..predefinedTypeSyntax.Span.End];
+                string dbType = GetDbTypeFromToken(predefinedTypeSyntax.Keyword.Text, contentDeclaration);
+                predefinedDbTypeDeclaration = (3, $" {dbType}");
+            }
+            else if (predefinedVariableTypeSyntax != null)
+            {
+                string contentDeclaration = csFileContent[predefinedVariableTypeSyntax.Span.Start..predefinedVariableTypeSyntax.Span.End];
+
+                var identifierNameSyntax = predefinedVariableTypeSyntax.Type as IdentifierNameSyntax;
+                var nullableTypeSyntax = predefinedVariableTypeSyntax.Type as NullableTypeSyntax;
+
+                string variableTypeName = "";
+
+                if (nullableTypeSyntax != null)
+                    variableTypeName = csFileContent[nullableTypeSyntax.Span.Start..nullableTypeSyntax.Span.End].TrimEnd('?');
+                else
+                    variableTypeName = csFileContent[identifierNameSyntax.Span.Start..identifierNameSyntax.Span.End];
+
+                string dbType = GetDbTypeFromToken(variableTypeName, contentDeclaration);
+                predefinedDbTypeDeclaration = (3, $" {dbType}");
+            }
+
+            #endregion
+
+            foreach (var item in descendantNodesAndTokensAndSelf)
+            {
+                string contentDeclaration = csFileContent[item.Span.Start..item.Span.End];
+
+                var node = item.AsNode();
+                var token = item.AsToken();
+
+                var variableDeclarator = item.AsNode() as VariableDeclaratorSyntax;
+                var equalsValueClauseSyntax = item.AsNode() as EqualsValueClauseSyntax;
+                var expressionSyntax = item.AsNode() as ExpressionSyntax;
+                var identifierNameSyntax = item.AsNode() as IdentifierNameSyntax;
+
+                if (variableDeclarator != null)
+                {
+                    defaultValue = false;
+
+                    NewStatementDeclaration(declare, expression, predefinedDbTypeDeclaration, sb);
+
+                    string variableName = variableDeclarator.Identifier.ValueText;
+
+                    declare.Add((1, "DECLARE "));
+                    declare.Add((2, $"`{variableName}`"));
+                    
+                    variablesCount++;
+                }
+
+                if (equalsValueClauseSyntax != null)
+                {
+                    defaultValue = true;
+                    declare.Add((4, " DEFAULT "));
+                }
+
+                if (defaultValue && expressionSyntax != null)
+                {
+                    var descendantExpression = expressionSyntax.DescendantNodesAndTokensAndSelf().ToList();
+                    var childNodesExpression = expressionSyntax.ChildNodesAndTokens().ToList();
+
+                    var expTranslated = TranslateExpressionToMySql(csFileContent,
+                                                                    descendantExpression,
+                                                                    childNodesExpression);
+
+                    expression = expTranslated.Select(x => (5, x)).ToList();
+                    NewStatementDeclaration(declare, expression, predefinedDbTypeDeclaration, sb);
+
+                    defaultValue = false;
+                }
+            }
+
+            NewStatementDeclaration(declare, expression, predefinedDbTypeDeclaration, sb);
+        }
+
+        private void NewStatementDeclaration(List<(int Order, string)> declare, 
+                                             List<(int Order, string)> expression,
+                                             (int Order, string)? predefinedDbTypeDeclaration,
+                                             StringBuilder sb)
+        {
+            if (!declare.Where(x => x.Order != 3).Any()) return;
+
+            if (predefinedDbTypeDeclaration != null)
+                if (!declare.Contains(predefinedDbTypeDeclaration.Value))
+                {
+                    declare.Add(predefinedDbTypeDeclaration.Value);
+                }
+
+            var declareString = string.Join("", declare.OrderBy(x => x.Order).Select(x => x.Item2));
+            var expressionString = string.Join("", expression.OrderBy(x => x.Order).Select(x => x.Item2));
+
+            var final = declareString + expressionString + ";";
+
+            sb.AppendLine(final);
             
-            if (genericNameSyntax != null)
+            declare.Clear();
+            expression.Clear();
+        }
+
+        private List<string> TranslateExpressionToMySql(string csFileContent,
+                                                        List<SyntaxNodeOrToken> descendantNodesAndTokensAndSelf,
+                                                        List<SyntaxNodeOrToken> childNodesAndTokens)
+        {
+            List<string> expression = new ();
+
+            foreach (var item in descendantNodesAndTokensAndSelf)
             {
-                var identifierGenericName = genericNameSyntax.Identifier;
-            }
+                string contentExpression = csFileContent[item.Span.Start..item.Span.End];
 
-            if (nullableTypeSyntax != null)
-            {
-                var nullableParent = (VariableDeclarationSyntax)nullableTypeSyntax.Parent!;
-                var declaration = parentParent!.Declaration;
-            }
+                var node = item.AsNode();
+                var token = item.AsToken();
 
-            #endregion
-
-            #region ValueInitialization
-
-            var identifierParent = (VariableDeclaratorSyntax)v.Identifier.Parent!;
-            var initializer = identifierParent.Initializer;
-            var expressionValue = initializer?.Value as ExpressionSyntax;
-            var literalValue = initializer?.Value as LiteralExpressionSyntax;
-            var implicitNewCreation = initializer?.Value as ImplicitObjectCreationExpressionSyntax;
-            var arrayCreationValue = initializer?.Value as ArrayCreationExpressionSyntax;
-
-            if (literalValue != null)
-            {
-                valueInitialization = literalValue.Token.Value;
-
-                if (valueInitialization == null)
-                    valueInitializationDefaultNull = true;
-            }
-            else 
-            {
-                var castExpressionSyntax = initializer?.Value as CastExpressionSyntax;
-                var createExpressionSyntax = initializer?.Value as ObjectCreationExpressionSyntax;
-
-                if (castExpressionSyntax != null)
+                if (token.Parent != null)
                 {
-                    var expressionCast = castExpressionSyntax.Expression;
-                    var literalExpressionSyntax = expressionCast as LiteralExpressionSyntax;
+                    var identifierNameSyntax = token.Parent as IdentifierNameSyntax;
 
-                    castFunction = true;
-                    valueInitialization = literalExpressionSyntax!.Token.Value;
+                    string valueText = token.ValueText;
 
-                    if (valueInitialization == null)
-                        valueInitializationDefaultNull = true;
-                }
-
-                if (createExpressionSyntax != null)
-                {
-                    var typeCreate = createExpressionSyntax.Type;
-                    var genericNameCreate = typeCreate as GenericNameSyntax;
-                    var identifierCreate = genericNameCreate?.Identifier;
-
-                    if (identifierCreate!.Value.ValueText == "Collection" ||
-                        identifierCreate.Value.ValueText == "List")
+                    if (identifierNameSyntax != null)
                     {
-                        valueCreateInitialization = "JSON_ARRAY()";
+                        valueText = $"`{valueText}`";
                     }
-                    else
-                        throw new NotImplementedException($"Criação de declaração '{contentDeclaration}' não suportada");
+
+                    expression.Add(valueText);
                 }
             }
 
-            #endregion
+            return expression;
+        }
 
-            string[] linesDeclaration = contentDeclaration.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            string[] linesVariable = contentVariable.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-            var typeName = linesDeclaration[0].TrimEnd('?');
-
-            sb.Append($"DECLARE `{variableName}` ");
-
-            if (typeName.StartsWith("List<") ||
-                typeName.StartsWith("IList<") ||
-                typeName.StartsWith("IEnumerable<") ||
-                typeName.StartsWith("Enumerable<") ||
-                typeName.StartsWith("Collection<") ||
-                typeName.StartsWith("ICollection<") ||
-                typeName.EndsWith("[]"))
+        private string GetDbTypeFromToken(string tokenType, 
+                                          string contentDeclaration)
+        {
+            if(tokenType == "var")
             {
-                if (implicitNewCreation != null || // = new()
-                    arrayCreationValue != null)    // = new[] 
-                {
-                    valueCreateInitialization = "JSON_ARRAY()";
-                }
-
-                sb.Append("JSON");
+                return "JSON";
             }
-            else if (typeName == "object" || typeName == "Object" || typeName == "System.Object")
+            else if (tokenType.StartsWith("List<") ||
+                     tokenType.StartsWith("IList<") ||
+                     tokenType.StartsWith("IEnumerable<") ||
+                     tokenType.StartsWith("Enumerable<") ||
+                     tokenType.StartsWith("Collection<") ||
+                     tokenType.StartsWith("ICollection<") ||
+                     tokenType.EndsWith("[]"))
             {
-                sb.Append("JSON");
+                return "JSON";
             }
-            else if (typeName == "char" || typeName == "Char" || typeName == "System.Char")
+            else if (tokenType == "object" || tokenType == "Object" || tokenType == "System.Object")
             {
-                if (castFunction) // = (int)126
-                {
-                    if (valueInitialization is int)
-                    {
-                        openCastFunction = "CHAR(";
-                        closeCastFunction = ")";
-                    }
-                    else
-                        throw new NotImplementedException($"Tipo de conversão '{contentDeclaration}'não suportada");
-                }
-
-                sb.Append("CHAR");
+                return "JSON";
             }
-            else if (typeName == "bool" || typeName == "Boolean" || typeName == "System.Boolean")
+            else if (tokenType == "char" || tokenType == "Char" || tokenType == "System.Char")
             {
-                sb.Append("BOOL");
+                return "CHAR";
             }
-            else if (typeName == "sbyte" || typeName == "SByte" || typeName == "System.SByte")
+            else if (tokenType == "bool" || tokenType == "Boolean" || tokenType == "System.Boolean")
             {
-                sb.Append("TINYINT");
+                return "BOOL";
             }
-            else if (typeName == "byte" || typeName == "Byte" || typeName == "System.Byte")
+            else if (tokenType == "sbyte" || tokenType == "SByte" || tokenType == "System.SByte")
             {
-                sb.Append("TINYINT UNSIGNED");
+                return "TINYINT";
             }
-            else if (typeName == "string" || typeName == "String" || typeName == "System.String")
+            else if (tokenType == "byte" || tokenType == "Byte" || tokenType == "System.Byte")
             {
-                sb.Append("VARCHAR(255)");
+                return "TINYINT UNSIGNED";
             }
-            else if (typeName == "short" || typeName == "Int16" || typeName == "System.Int16")
+            else if (tokenType == "string" || tokenType == "String" || tokenType == "System.String")
             {
-                sb.Append("SMALLINT");
+                return "VARCHAR(255)";
             }
-            else if (typeName == "ushort" || typeName == "UInt16" || typeName == "System.UInt16")
+            else if (tokenType == "short" || tokenType == "Int16" || tokenType == "System.Int16")
             {
-                sb.Append("SMALLINT UNSIGNED");
+                return "SMALLINT";
             }
-            else if (typeName == "int" || typeName == "Int32" || typeName == "System.Int32")
+            else if (tokenType == "ushort" || tokenType == "UInt16" || tokenType == "System.UInt16")
             {
-                sb.Append("INT");
+                return "SMALLINT UNSIGNED";
             }
-            else if (typeName == "uint" || typeName == "UInt32" || typeName == "System.UInt32")
+            else if (tokenType == "int" || tokenType == "Int32" || tokenType == "System.Int32")
             {
-                sb.Append("INT UNSIGNED");
+                return "INT";
             }
-            else if (typeName == "long" || typeName == "Int64" || typeName == "System.Int64")
+            else if (tokenType == "uint" || tokenType == "UInt32" || tokenType == "System.UInt32")
             {
-                sb.Append("BIGINT");
+                return "INT UNSIGNED";
             }
-            else if (typeName == "ulong" || typeName == "UInt64" || typeName == "System.UInt64")
+            else if (tokenType == "long" || tokenType == "Int64" || tokenType == "System.Int64")
             {
-                sb.Append("BIGINT UNSIGNED");
+                return "BIGINT";
             }
-            else if (typeName == "decimal" || typeName == "Decimal" || typeName == "System.Decimal")
+            else if (tokenType == "ulong" || tokenType == "UInt64" || tokenType == "System.UInt64")
             {
-                sb.Append("DECIMAL");
+                return "BIGINT UNSIGNED";
             }
-            else if (typeName == "double" || typeName == "Double" || typeName == "System.Double")
+            else if (tokenType == "decimal" || tokenType == "Decimal" || tokenType == "System.Decimal")
             {
-                sb.Append("DOUBLE");
+                return "DECIMAL";
             }
-            else if (typeName == "float" || typeName == "Single" || typeName == "System.Single")
+            else if (tokenType == "double" || tokenType == "Double" || tokenType == "System.Double")
             {
-                sb.Append("FLOAT");
+                return "DOUBLE";
+            }
+            else if (tokenType == "float" || tokenType == "Single" || tokenType == "System.Single")
+            {
+                return "FLOAT";
             }
             else
                 throw new NotImplementedException($"Tipo de declaração '{contentDeclaration}' não suportada");
 
-            if (valueInitializationDefaultNull)
-            {
-                sb.Append(" DEFAULT NULL");
-            }
-            else if (valueInitialization != null)
-            {
-                if (valueInitialization is string || valueInitialization is char)
-                {
-                    valueInitialization = $"\"{valueInitialization}\"";
-                }
-
-                sb.Append(
-                    " DEFAULT "+
-                    $"{openCastFunction}"+
-                    $"{valueInitialization}"+
-                    $"{closeCastFunction}");
-            }
-            else if (valueCreateInitialization != null)
-            {
-                sb.Append($" DEFAULT {valueCreateInitialization}");
-            }
-
-            return sb.ToString();
         }
 
         private ParameterDbType GetReturnDbType(Type returnType)
