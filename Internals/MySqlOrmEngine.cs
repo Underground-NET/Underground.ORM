@@ -1,17 +1,13 @@
 ﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MySqlConnector;
 using MySqlOrm.Core.Attributes;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Linq.Expressions;
+using MySqlOrm.Core.Translator;
+using System.Data;
 using System.Reflection;
-using System.Text;
 
 namespace MySqlOrm.Core.Internals
 {
-    public class MySqlOrmEngine
+    public partial class MySqlOrmEngine
     {
         private static readonly List<(MethodInfo, OrmFunctionScopeAttribute)> Functions = new();
         private static readonly List<(MethodInfo, OrmProcedureScopeAttribute)> Procedures = new();
@@ -118,10 +114,12 @@ namespace MySqlOrm.Core.Internals
             return RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4, arg5 });
         }
 
-        private string RunFunctionInternal(object function, 
-                                         MethodInfo method, 
+        private string RunFunctionInternal(object function,
+                                         MethodInfo method,
                                          object?[] values)
         {
+            MySqlTranslator translator = new();
+
             var functionAttribute = method.GetCustomAttribute<OrmFunctionScopeAttribute>();
 
             if (functionAttribute == null)
@@ -130,7 +128,7 @@ namespace MySqlOrm.Core.Internals
             }
 
             var returnType = method.ReturnType;
-            var returnDbType = GetReturnDbType(returnType);
+            var returnDbType = translator.GetReturnDbType(returnType);
 
             #region ParametersIn
 
@@ -138,541 +136,25 @@ namespace MySqlOrm.Core.Internals
 
             var parametersIn = parameters
                 .Select(x => new ParameterDbType(x.Name,
-                                                            GetDbType(x.ParameterType), 
+                                                            translator.GetDbType(x.ParameterType),
                                                             x.ParameterType)).ToList();
 
             #endregion
 
-            string createStatement = TranslateToPlMySql(method,
-                                                        functionAttribute,
-                                                        returnDbType,
-                                                        parametersIn, 
-                                                        new(), 
-                                                        new());
-            
+
+            string createStatement = translator.TranslateToPlMySql(method,
+                                                                   functionAttribute,
+                                                                   returnDbType,
+                                                                   parametersIn,
+                                                                   new(),
+                                                                   new());
+
             //var command = GetCommand();
             //command.CommandType = System.Data.CommandType.Text;
             //command.CommandText = createStatement;
             //var affected = command.ExecuteNonQuery();
 
             return createStatement;
-        }
-
-        private string TranslateToPlMySql(MethodInfo method,
-                                          OrmFunctionScopeAttribute functionScopeAttribute,
-                                          ParameterDbType parameterReturns,
-                                          List<ParameterDbType> parametersIn,
-                                          List<ParameterDbType> parametersOut,
-                                          List<ParameterDbType> parametersInOut)
-        {
-            var csFileContent = File.ReadAllText(functionScopeAttribute.CallerFilePath);
-            SyntaxTree tree = CSharpSyntaxTree.ParseText(csFileContent);
-            CompilationUnitSyntax root = tree.GetCompilationUnitRoot();
-            var nds = (NamespaceDeclarationSyntax)root.Members[0];
-            var cds = (ClassDeclarationSyntax)nds.Members[0];
-
-            var sb = new StringBuilder();
-
-            var parametersInFunction = string.Join(", ", parametersIn.Select(x => $"`{x.Argument}` {x.DbType}"));
-
-            sb.AppendLine($"CREATE FUNCTION `{functionScopeAttribute.Name}` ({parametersInFunction})");
-            sb.AppendLine($"RETURNS {parameterReturns.DbType}");
-            sb.AppendLine("BEGIN");
-
-            foreach (var ds in cds.Members)
-            {
-                if (ds is MethodDeclarationSyntax)
-                {
-                    var mds = (MethodDeclarationSyntax)ds;
-                    var methodName = mds.Identifier.ValueText;
-
-                    if (methodName == method.Name)
-                    {
-                        // TODO: Desenvolver regras para tradução de C# para MySql
-
-                        ConvertMethodBlockSyntax(mds.Body!, csFileContent, sb);
-                        break;
-                    }
-                }
-            }
-            
-            sb.AppendLine("END;");
-
-            return sb.ToString();
-        }
-
-        private void ConvertMethodBlockSyntax(BlockSyntax block, string csFileContent, StringBuilder sb)
-        {
-            var statements = block.Statements;
-
-            foreach (var statement in statements)
-            {
-                string codeLine = csFileContent[statement.Span.Start..statement.Span.End];
-                string fullCodeLine = csFileContent[statement.FullSpan.Start..statement.FullSpan.End];
-                var fullCodeLines = fullCodeLine.TrimEnd().Split(Environment.NewLine)
-                                                     .Select(x => x.Trim()).ToList();
-
-                #region Comments
-
-                foreach (var line in fullCodeLines)
-                {
-                    if (line.StartsWith("//"))
-                        sb.AppendLine("# " + line[2..].Trim());
-                    else if (string.IsNullOrEmpty(line.Trim()))
-                        sb.AppendLine();
-                }
-
-                #endregion
-
-                var descendantNodesAndTokensAndSelf = statement.DescendantNodesAndTokensAndSelf().ToList();
-
-                TranslateToMySql(csFileContent, 
-                                 descendantNodesAndTokensAndSelf, 
-                                 sb);
-
-            }
-        }
-
-        private void TranslateToMySql(string csFileContent,
-                                      List<SyntaxNodeOrToken> descendantNodesAndTokensAndSelf, 
-                                      StringBuilder sb)
-        {
-            foreach (var item in descendantNodesAndTokensAndSelf)
-            {
-                var variableDeclaration = item.AsNode() as VariableDeclarationSyntax;
-
-                if (variableDeclaration != null)
-                {
-                    TranslateDeclarationToMySql(csFileContent, 
-                                                variableDeclaration,
-                                                descendantNodesAndTokensAndSelf,
-                                                sb);
-                }
-            }
-        }
-
-        private List<string> TranslateDeclarationToMySql(string csFileContent,
-                                                 VariableDeclarationSyntax declaration,
-                                                 List<SyntaxNodeOrToken> descendants,
-                                                 StringBuilder mysqlSyntaxOut)
-        {
-            List<string> mysqlStatements = new();
-
-            Dictionary<int, string> mysqlDeclare = new();
-            (int Order, List<string>)? mysqlExpression = null;
-            (int Order, string) mysqlDbType;
-
-            int variablesCount = 0;
-            bool defaultValue = false;
-
-            #region Predefined Type
-
-            var predefinedTypeSyntax = descendants.Select(x => x.AsNode()).OfType<PredefinedTypeSyntax>().FirstOrDefault();
-            var predefinedType = descendants.Select(x => x.AsNode()).OfType<VariableDeclarationSyntax>().FirstOrDefault();
-
-            string dbType;
-            if (predefinedTypeSyntax != null)
-            {
-                string contentDeclaration = csFileContent[predefinedTypeSyntax.Span.Start..predefinedTypeSyntax.Span.End];
-                dbType = GetDbTypeFromToken(predefinedTypeSyntax.Keyword.Text, contentDeclaration);
-                
-            }
-            else if (predefinedType != null)
-            {
-                string contentDeclaration = csFileContent[predefinedType.Span.Start..predefinedType.Span.End];
-
-                var identifierNameSyntax = predefinedType.Type as IdentifierNameSyntax;
-                var nullableTypeSyntax = predefinedType.Type as NullableTypeSyntax;
-
-                string variableTypeName = "";
-
-                if (nullableTypeSyntax != null)
-                    variableTypeName = csFileContent[nullableTypeSyntax.Span.Start..nullableTypeSyntax.Span.End].TrimEnd('?');
-                else
-                    variableTypeName = csFileContent[identifierNameSyntax!.Span.Start..identifierNameSyntax.Span.End];
-
-                dbType = GetDbTypeFromToken(variableTypeName, contentDeclaration);
-            }
-            else
-                throw new NotImplementedException("Predefined type not found");
-
-            mysqlDbType = (3, $" {dbType}");
-            #endregion
-
-            foreach (var item in descendants)
-            {
-                string contentDeclaration = csFileContent[item.Span.Start..item.Span.End];
-
-                var node = item.AsNode();
-                var token = item.AsToken();
-
-                var variableDeclarator = item.AsNode() as VariableDeclaratorSyntax;
-                var equalsValueClauseSyntax = item.AsNode() as EqualsValueClauseSyntax;
-                var expressionSyntax = item.AsNode() as ExpressionSyntax;
-                var identifierNameSyntax = item.AsNode() as IdentifierNameSyntax;
-
-                if (variableDeclarator != null)
-                {
-                    defaultValue = false;
-
-                    mysqlStatements.AddRange(FinalizeDeclarationStatementMySql(mysqlDeclare, mysqlExpression, mysqlDbType, mysqlSyntaxOut));
-
-                    string variableName = variableDeclarator.Identifier.ValueText;
-
-                    mysqlDeclare.Add(1, "DECLARE ");
-                    mysqlDeclare.Add(2, $"`{variableName}`");
-                    
-                    variablesCount++;
-                }
-
-                if (equalsValueClauseSyntax != null)
-                {
-                    defaultValue = true;
-                    mysqlDeclare.Add(4, " DEFAULT ");
-                }
-
-                if (expressionSyntax != null && defaultValue)
-                {
-                    var descendantExpression = expressionSyntax.DescendantNodesAndTokensAndSelf().ToList();
-
-                    var expTranslated = TranslateDeclarationExpressionToMySql(csFileContent, descendantExpression);
-
-                    mysqlStatements.AddRange(FinalizeDeclarationStatementMySql(mysqlDeclare, (5, expTranslated), mysqlDbType, mysqlSyntaxOut));
-
-                    defaultValue = false;
-                }
-            }
-
-            mysqlStatements.AddRange(FinalizeDeclarationStatementMySql(mysqlDeclare, mysqlExpression, mysqlDbType, mysqlSyntaxOut));
-
-            return mysqlStatements;
-        }
-
-        private List<string> FinalizeDeclarationStatementMySql(Dictionary<int, string> mysqlDeclare,
-                                                              (int Order, List<string>)? mysqlExpression,
-                                                              (int Order, string) mysqlDbType,
-                                                              StringBuilder mysqlSyntaxOut)
-        {
-            if (!mysqlDeclare.Any()) return new ();
-
-            mysqlDeclare.Add(mysqlDbType.Order, mysqlDbType.Item2);
-
-            if (mysqlExpression != null)
-                mysqlDeclare.Add(mysqlExpression.Value.Order, string.Join("", mysqlExpression.Value.Item2));
-
-            // MySql Statement: (1)DECLARE (2)`variable` (3)type (4)DEFAULT (5)expression;
-
-            var mysqlStatement = string.Join("", mysqlDeclare.OrderBy(x => x.Key).Select(x => x.Value));
-
-            mysqlSyntaxOut.AppendLine(mysqlStatement + ";");
-            mysqlDeclare.Clear();
-
-            return new List<string>() { mysqlStatement };
-        }
-
-        private List<string> TranslateDeclarationExpressionToMySql(string csFileContent,
-                                                        List<SyntaxNodeOrToken> descendants)
-        {
-            List<string> expression = new();
-            
-            int currentLevel = 0;
-            List<int> closeParentheses = new();
-
-            foreach (var item in descendants)
-            {
-                string contentExpression = csFileContent[item.Span.Start..item.Span.End];
-
-                var node = item.AsNode();
-                var token = item.AsToken();
-
-                if (token.Parent != null)
-                {
-                    var identifierNameSyntax = token.Parent as IdentifierNameSyntax;
-                    var literalExpressionSyntax = token.Parent as LiteralExpressionSyntax;
-                    var castExpressionSyntax = token.Parent as CastExpressionSyntax;
-                    var binaryExpressionSyntax = token.Parent as BinaryExpressionSyntax;
-                    var parenthesizedExpressionSyntax = token.Parent as ParenthesizedExpressionSyntax;
-                    var predefinedTypeSyntax = token.Parent as PredefinedTypeSyntax;
-
-                    if (identifierNameSyntax != null)
-                    {
-                        expression.Add($"`{token.ValueText}`");
-                    }
-                    else if (literalExpressionSyntax != null)
-                    {
-                        expression.Add(token.Text);
-                    }
-                    else if (castExpressionSyntax != null)
-                    {
-                        var desc = castExpressionSyntax.DescendantNodes().ToList();
-
-                        if (token.ValueText == ")")
-                        {
-                            var predefinedType = castExpressionSyntax.Type as PredefinedTypeSyntax;
-
-                            expression.Add(GetCastDbTypeFromToken(predefinedType!.Keyword.ValueText, contentExpression));
-                            expression.Add("(");
-                            closeParentheses.Add(currentLevel);
-                        }
-                    }
-                    else if (binaryExpressionSyntax != null)
-                    {
-                        string operatorToken = binaryExpressionSyntax.OperatorToken.ValueText;
-
-                        expression.Add(operatorToken);
-                    }
-                    else if (parenthesizedExpressionSyntax != null)
-                    { 
-                        string parentheseToken = token.Text;
-
-                        expression.Add(parentheseToken);
-
-                        if (parentheseToken == "(")
-                        {
-                            currentLevel++;
-                        }
-                        else if (parentheseToken == ")")
-                        {
-                            CloseParentheses(expression, currentLevel, closeParentheses);
-
-                            currentLevel--;
-
-                            //CloseParentheses(expression, currentLevel, closeParentheses);
-                        }
-                    }
-                    else
-                    {
-                        if (predefinedTypeSyntax != null) continue;
-
-                        expression.Add(token.Text);
-                    }
-                }
-            }
-
-            CloseParentheses(expression, currentLevel, closeParentheses);
-            return expression;
-        }
-
-        private void CloseParentheses(List<string> expression, 
-                                      int currentLevel, 
-                                      List<int> closeParentheses)
-        {
-            // Fecha parênteses de métodos e funções injetados pelo tradutor
-            closeParentheses.Where(level => level == currentLevel)
-                .Select((level, i) => new { level, i }).ToList()
-                .ForEach(item =>
-                {
-                    expression.Add(")");
-                });
-
-            while (closeParentheses.Contains(currentLevel))
-            {
-                closeParentheses.Remove(currentLevel);
-            }
-        }
-
-        private List<string> TranslateExpressionToMySql(string csFileContent,
-                                                        List<SyntaxNodeOrToken> descendantNodesAndTokensAndSelf,
-                                                        List<SyntaxNodeOrToken> childNodesAndTokens)
-        {
-            List<string> expression = new ();
-
-            foreach (var item in descendantNodesAndTokensAndSelf)
-            {
-                string contentExpression = csFileContent[item.Span.Start..item.Span.End];
-
-                var node = item.AsNode();
-                var token = item.AsToken();
-
-                if (token.Parent != null)
-                {
-                    var identifierNameSyntax = token.Parent as IdentifierNameSyntax;
-
-                    string valueText = token.ValueText;
-
-                    if (identifierNameSyntax != null)
-                    {
-                        valueText = $"`{valueText}`";
-                    }
-
-                    expression.Add(valueText);
-                }
-            }
-
-            return expression;
-        }
-
-        private string GetCastDbTypeFromToken(string tokenType,
-                                              string contentDeclaration)
-        {
-            if (tokenType == "char")
-            {
-                return "CHAR";
-            }
-            else
-                throw new NotImplementedException($"Tipo de conversão '{contentDeclaration}' não suportada");
-        }
-
-        private string GetDbTypeFromToken(string tokenType, 
-                                          string contentDeclaration)
-        {
-            if(tokenType == "var")
-            {
-                return "JSON";
-            }
-            else if (tokenType.StartsWith("List<") ||
-                     tokenType.StartsWith("IList<") ||
-                     tokenType.StartsWith("IEnumerable<") ||
-                     tokenType.StartsWith("Enumerable<") ||
-                     tokenType.StartsWith("Collection<") ||
-                     tokenType.StartsWith("ICollection<") ||
-                     tokenType.EndsWith("[]"))
-            {
-                return "JSON";
-            }
-            else if (tokenType == "object" || tokenType == "Object" || tokenType == "System.Object")
-            {
-                return "JSON";
-            }
-            else if (tokenType == "char" || tokenType == "Char" || tokenType == "System.Char")
-            {
-                return "CHAR";
-            }
-            else if (tokenType == "bool" || tokenType == "Boolean" || tokenType == "System.Boolean")
-            {
-                return "BOOL";
-            }
-            else if (tokenType == "sbyte" || tokenType == "SByte" || tokenType == "System.SByte")
-            {
-                return "TINYINT";
-            }
-            else if (tokenType == "byte" || tokenType == "Byte" || tokenType == "System.Byte")
-            {
-                return "TINYINT UNSIGNED";
-            }
-            else if (tokenType == "string" || tokenType == "String" || tokenType == "System.String")
-            {
-                return "VARCHAR(255)";
-            }
-            else if (tokenType == "short" || tokenType == "Int16" || tokenType == "System.Int16")
-            {
-                return "SMALLINT";
-            }
-            else if (tokenType == "ushort" || tokenType == "UInt16" || tokenType == "System.UInt16")
-            {
-                return "SMALLINT UNSIGNED";
-            }
-            else if (tokenType == "int" || tokenType == "Int32" || tokenType == "System.Int32")
-            {
-                return "INT";
-            }
-            else if (tokenType == "uint" || tokenType == "UInt32" || tokenType == "System.UInt32")
-            {
-                return "INT UNSIGNED";
-            }
-            else if (tokenType == "long" || tokenType == "Int64" || tokenType == "System.Int64")
-            {
-                return "BIGINT";
-            }
-            else if (tokenType == "ulong" || tokenType == "UInt64" || tokenType == "System.UInt64")
-            {
-                return "BIGINT UNSIGNED";
-            }
-            else if (tokenType == "decimal" || tokenType == "Decimal" || tokenType == "System.Decimal")
-            {
-                return "DECIMAL";
-            }
-            else if (tokenType == "double" || tokenType == "Double" || tokenType == "System.Double")
-            {
-                return "DOUBLE";
-            }
-            else if (tokenType == "float" || tokenType == "Single" || tokenType == "System.Single")
-            {
-                return "FLOAT";
-            }
-            else
-                throw new NotImplementedException($"Tipo de declaração '{contentDeclaration}' não suportada");
-
-        }
-
-        private ParameterDbType GetReturnDbType(Type returnType)
-        {
-            var dbType = ParameterDbType.Factory.Create();
-
-            dbType.DbType = GetDbType(returnType);
-            dbType.FromType = returnType;
-
-            if (returnType.IsGenericType)
-            {
-                foreach (var genericType in returnType.GenericTypeArguments)
-                {
-                    dbType.AddSubType(genericType.Name, GetDbType(genericType), genericType);
-                }
-            }
-
-            return dbType;
-        }
-
-        private string GetDbType(Type returnType)
-        {
-            string dbType;
-
-            if (returnType.Name == "List`1")
-            {
-                dbType = "JSON";
-            }
-            else if (returnType == typeof(string))
-            {
-                dbType = "VARCHAR(255)";
-            }
-            else if (returnType == typeof(bool))
-            {
-                dbType = "TINYINT";
-            }
-            else if (returnType == typeof(short))
-            {
-                dbType = "SMALLINT";
-            }
-            else if (returnType == typeof(int))
-            {
-                dbType = "INT";
-            }
-            else if (returnType == typeof(long))
-            {
-                dbType = "BIGINT";
-            }
-            else if (returnType == typeof(decimal))
-            {
-                dbType = "DECIMAL";
-            }
-            else if (returnType == typeof(double))
-            {
-                dbType = "DECIMAL";
-            }
-            else if (returnType == typeof(byte[]))
-            {
-                dbType = "LONGBLOB";
-            }
-            else if (returnType == typeof(DateTime))
-            {
-                dbType = "DATETIME";
-            }
-            else if (returnType == typeof(TimeSpan))
-            {
-                dbType = "TIMESTAMP";
-            }
-            else if (returnType == typeof(Guid))
-            {
-                dbType = "CHAR(36)";
-            }
-            else if (returnType == typeof(char))
-            {
-                dbType = "CHAR";
-            }
-            else
-                throw new NotImplementedException();
-
-            return dbType;
         }
     }
 }

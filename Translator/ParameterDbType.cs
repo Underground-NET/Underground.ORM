@@ -1,4 +1,4 @@
-﻿namespace MySqlOrm.Core.Internals
+﻿namespace MySqlOrm.Core.Translator
 {
     internal class ParameterDbType
     {
@@ -12,8 +12,8 @@
 
         protected ParameterDbType() { }
 
-        internal ParameterDbType(string? argument, 
-                                 string dbType, 
+        internal ParameterDbType(string? argument,
+                                 string dbType,
                                  Type? fromType)
         {
             Argument = argument ?? "";
