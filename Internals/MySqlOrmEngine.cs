@@ -142,7 +142,7 @@ namespace MySqlOrm.Core.Internals
             #endregion
 
 
-            string createStatement = translator.TranslateToPlMySql(method,
+            string createStatement = translator.TranslateToMySqlSyntax(method,
                                                                    functionAttribute,
                                                                    returnDbType,
                                                                    parametersIn,

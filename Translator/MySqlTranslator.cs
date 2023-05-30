@@ -9,12 +9,12 @@ namespace MySqlOrm.Core.Translator
 {
     public class MySqlTranslator
     {
-        internal string TranslateToPlMySql(MethodInfo method,
-                                         OrmFunctionScopeAttribute functionScopeAttribute,
-                                         ParameterDbType parameterReturns,
-                                         List<ParameterDbType> parametersIn,
-                                         List<ParameterDbType> parametersOut,
-                                         List<ParameterDbType> parametersInOut)
+        internal string TranslateToMySqlSyntax(MethodInfo method,
+                                              OrmFunctionScopeAttribute functionScopeAttribute,
+                                              ParameterDbType parameterReturns,
+                                              List<ParameterDbType> parametersIn,
+                                              List<ParameterDbType> parametersOut,
+                                              List<ParameterDbType> parametersInOut)
         {
             var csFileContent = File.ReadAllText(functionScopeAttribute.CallerFilePath);
             SyntaxTree tree = CSharpSyntaxTree.ParseText(csFileContent);
@@ -22,13 +22,13 @@ namespace MySqlOrm.Core.Translator
             var nds = (NamespaceDeclarationSyntax)root.Members[0];
             var cds = (ClassDeclarationSyntax)nds.Members[0];
 
-            var sb = new StringBuilder();
+            var mysqlSyntaxOut = new StringBuilder();
 
             var parametersInFunction = string.Join(", ", parametersIn.Select(x => $"`{x.Argument}` {x.DbType}"));
 
-            sb.AppendLine($"CREATE FUNCTION `{functionScopeAttribute.Name}` ({parametersInFunction})");
-            sb.AppendLine($"RETURNS {parameterReturns.DbType}");
-            sb.AppendLine("BEGIN");
+            mysqlSyntaxOut.AppendLine($"CREATE FUNCTION `{functionScopeAttribute.Name}` ({parametersInFunction})");
+            mysqlSyntaxOut.AppendLine($"RETURNS {parameterReturns.DbType}");
+            mysqlSyntaxOut.AppendLine("BEGIN");
 
             foreach (var ds in cds.Members)
             {
@@ -41,18 +41,20 @@ namespace MySqlOrm.Core.Translator
                     {
                         // TODO: Desenvolver regras para tradução de C# para MySql
 
-                        ConvertMethodBlockSyntax(mds.Body!, csFileContent, sb);
+                        ConvertMethodBlockSyntax(mds.Body!, csFileContent, mysqlSyntaxOut);
                         break;
                     }
                 }
             }
 
-            sb.AppendLine("END;");
+            mysqlSyntaxOut.AppendLine("END;");
 
-            return sb.ToString();
+            return mysqlSyntaxOut.ToString();
         }
 
-        private void ConvertMethodBlockSyntax(BlockSyntax block, string csFileContent, StringBuilder sb)
+        private void ConvertMethodBlockSyntax(BlockSyntax block, 
+                                              string csFileContent, 
+                                              StringBuilder mysqlSyntaxOut)
         {
             var statements = block.Statements;
 
@@ -68,9 +70,9 @@ namespace MySqlOrm.Core.Translator
                 foreach (var line in fullCodeLines)
                 {
                     if (line.StartsWith("//"))
-                        sb.AppendLine("# " + line[2..].Trim());
+                        mysqlSyntaxOut.AppendLine("# " + line[2..].Trim());
                     else if (string.IsNullOrEmpty(line.Trim()))
-                        sb.AppendLine();
+                        mysqlSyntaxOut.AppendLine();
                 }
 
                 #endregion
@@ -79,14 +81,14 @@ namespace MySqlOrm.Core.Translator
 
                 TranslateToMySql(csFileContent,
                                  descendantNodesAndTokensAndSelf,
-                                 sb);
+                                 mysqlSyntaxOut);
 
             }
         }
 
         private void TranslateToMySql(string csFileContent,
                                      List<SyntaxNodeOrToken> descendants,
-                                     StringBuilder sb)
+                                     StringBuilder mysqlSyntaxOut)
         {
             foreach (var item in descendants)
             {
@@ -97,14 +99,14 @@ namespace MySqlOrm.Core.Translator
                 {
                     TranslateDeclarationToMySql(csFileContent,
                                                 descendants,
-                                                sb);
+                                                mysqlSyntaxOut);
                 }
 
                 if (returnStatementSyntax != null)
                 {
                     TranslateReturnsToMySql(csFileContent,
                                             returnStatementSyntax.DescendantNodesAndTokensAndSelf().ToList(),
-                                            sb);
+                                            mysqlSyntaxOut);
                 }
             }
         }
