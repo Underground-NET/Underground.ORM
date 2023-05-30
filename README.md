@@ -48,7 +48,7 @@ BEGIN
 END;
 ```
 
-##### Invoke method in server-side
+##### Invoke method in server-side:
 ```C#
 var result = await orm.RunFunctionAsync(SumMethodFunction, 10, 5);
 ```
