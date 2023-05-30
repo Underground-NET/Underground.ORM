@@ -17,11 +17,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Underground.ORM.Core\Urderground.ORM.Core.csproj" />
+    <Folder Include="Procedure\" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Procedure\" />
+    <ProjectReference Include="..\..\src\Underground.ORM.Core\Urderground.ORM.Core.csproj" />
   </ItemGroup>
 
 </Project>
