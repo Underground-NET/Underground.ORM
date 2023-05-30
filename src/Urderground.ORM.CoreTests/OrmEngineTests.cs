@@ -1,4 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using MySqlConnector;
 using Urderground.ORM.Core;
 
 namespace Urderground.ORM.CoreTests
@@ -6,10 +7,17 @@ namespace Urderground.ORM.CoreTests
     [TestClass()]
     public class OrmEngineTests
     {
-        [TestMethod()]
-        public void OrmEngineTest()
+        public static Lazy<OrmEngine> OrmEngine = new (() =>
         {
-            OrmEngine engine = new ();
-        }
+            MySqlConnectionStringBuilder sb = new();
+
+            sb.Server = "localhost";
+            sb.Port = 3306;
+            sb.UserID = "root";
+            sb.Password = "12345678";
+            sb.Database = "underground_orm_tests";
+
+            return new OrmEngine(sb);
+        });
     }
 }

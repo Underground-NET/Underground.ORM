@@ -8,7 +8,7 @@ namespace Urderground.ORM.Core.Translator
 {
     public class MySqlTranslator
     {
-        public MySqlSyntax TranslateToMySqlSyntax(MethodInfo method, object?[] values)
+        public MySqlSyntax TranslateToFunctionCreateSyntax(MethodInfo method, object?[] values)
         {
             var functionAttribute = method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
 
@@ -57,7 +57,7 @@ namespace Urderground.ORM.Core.Translator
 
             var parametersInFunction = string.Join(", ", parametersIn.Select(x => $"`{x.Argument}` {x.DbType}"));
 
-            mysqlSyntaxOut.Add($"CREATE FUNCTION `{functionAttribute.Name}` ({parametersInFunction})");
+            mysqlSyntaxOut.Add($"CREATE FUNCTION `{functionAttribute.RoutineName}` ({parametersInFunction})");
             mysqlSyntaxOut.Add("\n");
             mysqlSyntaxOut.Add($"RETURNS {mysqlReturnDbType.DbType}");
             mysqlSyntaxOut.Add("\n");
@@ -83,7 +83,9 @@ namespace Urderground.ORM.Core.Translator
 
             mysqlSyntaxOut.Add("END;");
 
-            return new MySqlSyntax(string.Join("", mysqlSyntaxOut), 
+            return new MySqlSyntax(method,
+                                   functionAttribute.RoutineName,
+                                   string.Join("", mysqlSyntaxOut), 
                                    mysqlSyntaxOut);
         }
 

@@ -1,15 +1,26 @@
-﻿namespace Urderground.ORM.Core.Translator
+﻿using System.Reflection;
+
+namespace Urderground.ORM.Core.Translator
 {
     public class MySqlSyntax
     {
+        public MethodInfo Method { get; private set; }
+
+        public string RoutineName { get; private set; }
+
         public string Statement { get; private set; }
 
-        public List<string> Debug { get; private set; }
+        public List<string> Code { get; private set; }
 
-        public MySqlSyntax(string statement, List<string> debug)
+        public MySqlSyntax(MethodInfo method, 
+                           string routineName,
+                           string statement, 
+                           List<string> code)
         {
+            Method = method;
+            RoutineName = routineName;
             Statement = statement;
-            Debug = debug;
+            Code = code;
         }
     }
 }

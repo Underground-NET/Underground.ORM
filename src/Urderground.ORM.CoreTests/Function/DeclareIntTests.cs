@@ -1,23 +1,16 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Urderground.ORM.Core;
 using Urderground.ORM.Core.Attributes;
 
-namespace Urderground.ORM.CoreTests
+namespace Urderground.ORM.CoreTests.Function
 {
     [TestClass()]
     public class DeclareIntTests
     {
-        OrmEngine _engine;
-
-        public DeclareIntTests()
-        {
-            _engine = new();
-        }
-
         [TestMethod()]
-        public void DeclareIntTest()
+        public async Task DeclareIntTest()
         {
-            var mysqlSyntax = _engine.CreateFunctionStatement(FuncaoDeclareInt, 10, 20);
+            var mysqlFunction = OrmEngineTests.OrmEngine.Value.BuildFunctionCreateStatement(FuncaoDeclareInt, 10, 20);
+            await OrmEngineTests.OrmEngine.Value.UpdateDatabaseAsync(mysqlFunction);
 
             // "DECLARE `var27` INT DEFAULT CAST((((1+(2)+((3))))) AS SIGNED INT)-(CAST(((2)) AS SIGNED INT));";
         }

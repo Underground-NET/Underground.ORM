@@ -1,5 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
-using MySqlConnector;
+﻿using MySqlConnector;
 using System.Data;
 using System.Reflection;
 using Urderground.ORM.Core.Attributes;
@@ -16,14 +15,14 @@ namespace Urderground.ORM.Core
         private MySqlConnection _connection;
         private string _connectionString;
 
-        public OrmEngine()
-        {
-
-        }
-
         public OrmEngine(string connectionString)
         {
             _connectionString = connectionString;
+        }
+
+        public OrmEngine(MySqlConnectionStringBuilder connectionString)
+        {
+            _connectionString = connectionString.ToString();
         }
 
         static OrmEngine()
@@ -54,14 +53,67 @@ namespace Urderground.ORM.Core
             }
         }
 
-        public async Task ConnectAsync()
+        public async Task ConnectAsync(bool ensureCreateDatabase = true)
         {
+            string? ensureDataBase = null;
+
+        Retry:
             _connection = new MySqlConnection(_connectionString);
-            await _connection.OpenAsync();
+
+            try
+            {
+                await _connection.OpenAsync();
+            }
+            catch (MySqlException ex)
+            {
+                #region UnknownDatabase
+                if (ensureCreateDatabase && ex.ErrorCode == MySqlErrorCode.UnknownDatabase)
+                {
+                    ensureDataBase = _connection.Database;
+                    await _connection.CloseAsync();
+
+                    var sb = new MySqlConnectionStringBuilder(_connectionString)
+                    {
+                        Database = null
+                    };
+                    _connectionString = sb.ToString();
+                    goto Retry;
+                }
+                #endregion
+
+                throw;
+            }
+
+            if (ensureDataBase != null)
+            {
+                using (_connection)
+                {
+                    var command = await GetCommandAsync();
+                    command.CommandText = $"CREATE DATABASE `{ensureDataBase}`";
+                    await command.ExecuteNonQueryAsync();
+                }
+
+                var sb = new MySqlConnectionStringBuilder(_connectionString)
+                {
+                    Database = ensureDataBase
+                };
+
+                _connectionString = sb.ToString();
+                await ConnectAsync(ensureCreateDatabase);
+            }
         }
 
-        public MySqlCommand GetCommand()
+        public async Task EnsureConnectedAync()
         {
+            if (_connection == null || _connection.State == ConnectionState.Closed)
+            {
+                await ConnectAsync();
+            }
+        }
+
+        public async Task<MySqlCommand> GetCommandAsync()
+        {
+            await EnsureConnectedAync();
             return _connection.CreateCommand();
         }
 
@@ -90,52 +142,79 @@ namespace Urderground.ORM.Core
 
         }
 
-        public MySqlSyntax RunFunction<T1>(Func<T1> function)
+        public MySqlSyntax BuildCreateFunctionStatement<T1>(Func<T1> function)
         {
-            return CreateFunctionInternal(function, function.GetMethodInfo(), Array.Empty<object?>());
+            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), Array.Empty<object?>());
         }
 
-        public MySqlSyntax RunFunction<T1, T2>(Func<T1, T2> function, T1 arg1)
+        public MySqlSyntax BuildCreateFunctionStatement<T1, T2>(Func<T1, T2> function, T1 arg1)
         {
-            return CreateFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1 });
+            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), new object?[] { arg1 });
         }
 
-        public MySqlSyntax CreateFunctionStatement<T1, T2, T3>(Func<T1, T2, T3> function, T1 arg1, T2 arg2)
+        public MySqlSyntax BuildFunctionCreateStatement<T1, T2, T3>(Func<T1, T2, T3> function, T1 arg1, T2 arg2)
         {
-            return CreateFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2 });
+            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), new object?[] { arg1, arg2 });
         }
 
-        public MySqlSyntax RunFunction<T1, T2, T3, T4>(Func<T1, T2, T3, T4> function, T1 arg1, T2 arg2, T3 arg3)
+        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, T4>(Func<T1, T2, T3, T4> function, T1 arg1, T2 arg2, T3 arg3)
         {
-            return CreateFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3 });
+            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3 });
         }
 
-        public MySqlSyntax RunFunction<T1, T2, T3, T4, T5>(Func<T1, T2, T3, T4, T5> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
+        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, T4, T5>(Func<T1, T2, T3, T4, T5> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
         {
-            return CreateFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4 });
+            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4 });
         }
 
-        public MySqlSyntax RunFunction<T1, T2, T3, T4, T5, T6>(Func<T1, T2, T3, T4, T5, T6> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
+        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, T4, T5, T6>(Func<T1, T2, T3, T4, T5, T6> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
         {
-            return CreateFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4, arg5 });
+            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4, arg5 });
         }
 
-        private MySqlSyntax CreateFunctionInternal(object function,
-                                              MethodInfo method,
-                                              object?[] values)
-        {
+        private MySqlSyntax BuildFunctionCreateStatement(object function,
+                                                         MethodInfo method,
+                                                         object?[] values)
+         {
             MySqlTranslator translator = new();
 
-            var mysqlSyntax = translator.TranslateToMySqlSyntax(method, values);
-
-            // TODO: Conectar no banco de dados e criar a função
-
-            //var command = GetCommand();
-            //command.CommandType = System.Data.CommandType.Text;
-            //command.CommandText = createStatement;
-            //var affected = command.ExecuteNonQuery();
+            var mysqlSyntax = translator.TranslateToFunctionCreateSyntax(method, values);
 
             return mysqlSyntax;
+        }
+
+        public async Task<int> UpdateDatabaseAsync(MySqlSyntax mysqlSyntax)
+        {
+            var functionAttribute = mysqlSyntax.Method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
+
+            await EnsureConnectedAync();
+
+            if (functionAttribute != null)
+            {
+                var command = await GetCommandAsync();
+            Retry:
+
+                command.CommandType = CommandType.Text;
+                command.CommandText = mysqlSyntax.Statement;
+
+                try
+                {
+                    return command.ExecuteNonQuery();
+                }
+                catch (MySqlException ex)
+                {
+                    if (ex.ErrorCode == MySqlErrorCode.StoredProcedureAlreadyExists)
+                    {
+                        command.CommandText = $"USE `{_connection.Database}`; DROP FUNCTION `{mysqlSyntax.RoutineName}`";
+                        await command.ExecuteNonQueryAsync();
+                        goto Retry;
+                    }
+
+                    throw;
+                }
+            }
+
+            throw new NotImplementedException($"Atributo de escopo não definido para o método '{mysqlSyntax.Method.Name}'");
         }
     }
 }

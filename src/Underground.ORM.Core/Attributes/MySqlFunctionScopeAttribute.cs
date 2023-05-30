@@ -4,14 +4,14 @@ namespace Urderground.ORM.Core.Attributes
 {
     public class MySqlFunctionScopeAttribute : Attribute
     {
-        public string Name { get; private set; }
+        public string RoutineName { get; private set; }
 
         public string CallerFilePath { get; private set; }
 
-        public MySqlFunctionScopeAttribute(string name,
+        public MySqlFunctionScopeAttribute(string routineName,
                                           [CallerFilePath] string callerFilePath = "")
         {
-            Name = name;
+            RoutineName = routineName;
             CallerFilePath = callerFilePath;
         }
     }
