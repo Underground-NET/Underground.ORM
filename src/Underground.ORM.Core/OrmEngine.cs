@@ -14,6 +14,10 @@ namespace Urderground.ORM.Core
 
         private MySqlConnection _connection;
         private string _connectionString;
+        
+        private bool _ensureCreateDatabase;
+
+        public bool EnsureCreateDatabase { get => _ensureCreateDatabase; set => _ensureCreateDatabase = value; }
 
         public OrmEngine(string connectionString)
         {
@@ -53,7 +57,7 @@ namespace Urderground.ORM.Core
             }
         }
 
-        public async Task ConnectAsync(bool ensureCreateDatabase = true)
+        public async Task ConnectAsync(CancellationToken ct = default)
         {
             string? ensureDataBase = null;
 
@@ -62,12 +66,12 @@ namespace Urderground.ORM.Core
 
             try
             {
-                await _connection.OpenAsync();
+                await _connection.OpenAsync(ct);
             }
             catch (MySqlException ex)
             {
                 #region UnknownDatabase
-                if (ensureCreateDatabase && ex.ErrorCode == MySqlErrorCode.UnknownDatabase)
+                if (_ensureCreateDatabase && ex.ErrorCode == MySqlErrorCode.UnknownDatabase)
                 {
                     ensureDataBase = _connection.Database;
                     await _connection.CloseAsync();
@@ -88,9 +92,9 @@ namespace Urderground.ORM.Core
             {
                 using (_connection)
                 {
-                    var command = await GetCommandAsync();
+                    var command = await GetCommandAsync(ct);
                     command.CommandText = $"CREATE DATABASE `{ensureDataBase}`";
-                    await command.ExecuteNonQueryAsync();
+                    await command.ExecuteNonQueryAsync(ct);
                 }
 
                 var sb = new MySqlConnectionStringBuilder(_connectionString)
@@ -99,21 +103,21 @@ namespace Urderground.ORM.Core
                 };
 
                 _connectionString = sb.ToString();
-                await ConnectAsync(ensureCreateDatabase);
+                await ConnectAsync(ct);
             }
         }
 
-        public async Task EnsureConnectedAync()
+        public async Task EnsureConnectedAync(CancellationToken ct)
         {
             if (_connection == null || _connection.State == ConnectionState.Closed)
             {
-                await ConnectAsync();
+                await ConnectAsync(ct);
             }
         }
 
-        public async Task<MySqlCommand> GetCommandAsync()
+        public async Task<MySqlCommand> GetCommandAsync(CancellationToken ct = default)
         {
-            await EnsureConnectedAync();
+            await EnsureConnectedAync(ct);
             return _connection.CreateCommand();
         }
 
@@ -142,56 +146,119 @@ namespace Urderground.ORM.Core
 
         }
 
-        public MySqlSyntax BuildCreateFunctionStatement<T1>(Func<T1> function)
+        #region RunFunction
+
+        public Task<TReturn?> RunFunctionAsync<TReturn>(Func<TReturn> function, CancellationToken ct = default)
         {
-            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), Array.Empty<object?>());
+            return RunFunctionAsync<TReturn?>(function, function.GetMethodInfo(), Array.Empty<object?>(), ct);
         }
 
-        public MySqlSyntax BuildCreateFunctionStatement<T1, T2>(Func<T1, T2> function, T1 arg1)
+        public Task<TReturn?> RunFunctionAsync<T1, TReturn>(Func<T1, TReturn> function, T1 arg1, CancellationToken ct = default)
         {
-            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), new object?[] { arg1 });
+            return RunFunctionAsync<TReturn?>(function, function.GetMethodInfo(), new object?[] { arg1 }, ct);
         }
 
-        public MySqlSyntax BuildFunctionCreateStatement<T1, T2, T3>(Func<T1, T2, T3> function, T1 arg1, T2 arg2)
+        public Task<TReturn?> RunFunctionAsync<T1, T2, TReturn>(Func<T1, T2, TReturn> function, T1 arg1, T2 arg2, CancellationToken ct = default)
         {
-            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), new object?[] { arg1, arg2 });
+            return RunFunctionAsync<TReturn?>(function, function.GetMethodInfo(), new object?[] { arg1, arg2 }, ct);
         }
 
-        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, T4>(Func<T1, T2, T3, T4> function, T1 arg1, T2 arg2, T3 arg3)
+        public Task<TReturn?> RunFunctionAsync<T1, T2, T3, TReturn>(Func<T1, T2, T3, TReturn> function, T1 arg1, T2 arg2, T3 arg3, CancellationToken ct = default)
         {
-            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3 });
+            return RunFunctionAsync<TReturn?>(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3 }, ct);
         }
 
-        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, T4, T5>(Func<T1, T2, T3, T4, T5> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
+        public Task<TReturn?> RunFunctionAsync<T1, T2, T3, T4, TReturn>(Func<T1, T2, T3, T4, TReturn> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4, CancellationToken ct = default)
         {
-            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4 });
+            return RunFunctionAsync<TReturn?>(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4 }, ct);
         }
 
-        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, T4, T5, T6>(Func<T1, T2, T3, T4, T5, T6> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
+        public Task<TReturn?> RunFunctionAsync<T1, T2, T3, T4, T5, TReturn>(Func<T1, T2, T3, T4, T5, TReturn> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, CancellationToken ct = default)
         {
-            return BuildFunctionCreateStatement(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4, arg5 });
+            return RunFunctionAsync<TReturn?>(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4, arg5 }, ct);
         }
 
-        private MySqlSyntax BuildFunctionCreateStatement(object function,
-                                                         MethodInfo method,
-                                                         object?[] values)
+
+        private async Task<TReturn?> RunFunctionAsync<TReturn>(object function,
+                                                              MethodInfo method,
+                                                              object?[] values,
+                                                              CancellationToken ct)
+        {
+            var functionAttribute = method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
+
+            if (functionAttribute != null)
+            {
+                await EnsureConnectedAync(ct);
+
+                var command = await GetCommandAsync(ct);
+
+                var parameters = values.Select((x, i) => new MySqlParameter($"arg{i + 1}", x)).ToArray();
+                command.Parameters.AddRange(parameters);
+
+                command.CommandText = 
+                    $"SELECT `{_connection.Database}`.`{functionAttribute.RoutineName}`" + 
+                    $"({string.Join(",", parameters.Select(x => $"@{x.ParameterName}"))})";
+
+                return (TReturn?)await command.ExecuteScalarAsync(ct);
+            }
+
+            throw new Exception($"Atributo de escopo não definido para o método '{method.Name}'");
+        }
+
+        #endregion
+
+        #region BuildCreateFunctionStatement
+
+        public MySqlSyntax BuildCreateFunctionStatement<TReturn>(Func<TReturn> function)
+        {
+            return BuildFunctionCreateStatement(function.GetMethodInfo());
+        }
+
+        public MySqlSyntax BuildCreateFunctionStatement<T1, TReturn>(Func<T1, TReturn> function)
+        {
+            return BuildFunctionCreateStatement(function.GetMethodInfo());
+        }
+
+        public MySqlSyntax BuildFunctionCreateStatement<T1, T2, TReturn>(Func<T1, T2, TReturn> function)
+        {
+            return BuildFunctionCreateStatement(function.GetMethodInfo());
+        }
+
+        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, TReturn>(Func<T1, T2, T3, TReturn> function)
+        {
+            return BuildFunctionCreateStatement(function.GetMethodInfo());
+        }
+
+        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, T4, TReturn>(Func<T1, T2, T3, T4, TReturn> function)
+        {
+            return BuildFunctionCreateStatement(function.GetMethodInfo());
+        }
+
+        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, T4, T5, TReturn>(Func<T1, T2, T3, T4, T5, TReturn> function)
+        {
+            return BuildFunctionCreateStatement(function.GetMethodInfo());
+        }
+
+        private MySqlSyntax BuildFunctionCreateStatement(MethodInfo method)
          {
             MySqlTranslator translator = new();
 
-            var mysqlSyntax = translator.TranslateToFunctionCreateSyntax(method, values);
+            var mysqlSyntax = translator.TranslateToFunctionCreateSyntax(method);
 
             return mysqlSyntax;
         }
 
-        public async Task<int> UpdateDatabaseAsync(MySqlSyntax mysqlSyntax)
+        #endregion
+
+        public async Task<int> UpdateDatabaseAsync(MySqlSyntax mysqlSyntax, CancellationToken ct = default)
         {
             var functionAttribute = mysqlSyntax.Method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
 
-            await EnsureConnectedAync();
+            await EnsureConnectedAync(ct);
 
             if (functionAttribute != null)
             {
-                var command = await GetCommandAsync();
+                var command = await GetCommandAsync(ct);
             Retry:
 
                 command.CommandType = CommandType.Text;
@@ -199,14 +266,14 @@ namespace Urderground.ORM.Core
 
                 try
                 {
-                    return command.ExecuteNonQuery();
+                    return await command.ExecuteNonQueryAsync(ct);
                 }
                 catch (MySqlException ex)
                 {
                     if (ex.ErrorCode == MySqlErrorCode.StoredProcedureAlreadyExists)
                     {
-                        command.CommandText = $"USE `{_connection.Database}`; DROP FUNCTION `{mysqlSyntax.RoutineName}`";
-                        await command.ExecuteNonQueryAsync();
+                        command.CommandText = $"DROP FUNCTION `{_connection.Database}`.`{mysqlSyntax.RoutineName}`";
+                        await command.ExecuteNonQueryAsync(ct);
                         goto Retry;
                     }
 
@@ -214,7 +281,7 @@ namespace Urderground.ORM.Core
                 }
             }
 
-            throw new NotImplementedException($"Atributo de escopo não definido para o método '{mysqlSyntax.Method.Name}'");
+            throw new Exception($"Atributo de escopo não definido para o método '{mysqlSyntax.Method.Name}'");
         }
     }
 }

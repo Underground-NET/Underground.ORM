@@ -16,8 +16,9 @@ namespace Urderground.ORM.CoreTests
             sb.UserID = "root";
             sb.Password = "12345678";
             sb.Database = "underground_orm_tests";
+            sb.AllowUserVariables = true;
 
-            return new OrmEngine(sb);
+            return new OrmEngine(sb) { EnsureCreateDatabase = true };
         });
     }
 }

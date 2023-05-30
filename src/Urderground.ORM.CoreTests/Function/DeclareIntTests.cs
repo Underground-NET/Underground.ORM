@@ -1,4 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Diagnostics;
+using Urderground.ORM.Core;
 using Urderground.ORM.Core.Attributes;
 
 namespace Urderground.ORM.CoreTests.Function
@@ -6,17 +8,29 @@ namespace Urderground.ORM.CoreTests.Function
     [TestClass()]
     public class DeclareIntTests
     {
+        private readonly OrmEngine _orm;
+
+        public DeclareIntTests() 
+        {
+            _orm = OrmEngineTests.OrmEngine.Value;
+        }
+
         [TestMethod()]
         public async Task DeclareIntTest()
         {
-            var mysqlFunction = OrmEngineTests.OrmEngine.Value.BuildFunctionCreateStatement(FuncaoDeclareInt, 10, 20);
-            await OrmEngineTests.OrmEngine.Value.UpdateDatabaseAsync(mysqlFunction);
+            var function = _orm.BuildFunctionCreateStatement<int, int, int>(FuncaoDeclareIntTest);
+            Debug.Print(function.Statement);
 
-            // "DECLARE `var27` INT DEFAULT CAST((((1+(2)+((3))))) AS SIGNED INT)-(CAST(((2)) AS SIGNED INT));";
+            await _orm.UpdateDatabaseAsync(function);
+
+            var resultCSharp = FuncaoDeclareIntTest(10, 30);
+            var resultMysql = await _orm.RunFunctionAsync(FuncaoDeclareIntTest, 10, 30);
+            
+            Assert.AreEqual(resultCSharp, resultMysql);
         }
 
-        [MySqlFunctionScope(nameof(DeclareIntTest))]
-        private int FuncaoDeclareInt(int idade, int dias)
+        [MySqlFunctionScope(nameof(FuncaoDeclareIntTest))]
+        private int FuncaoDeclareIntTest(int idade, int dias)
         {
             // Simples
             int var1;
@@ -35,18 +49,20 @@ namespace Urderground.ORM.CoreTests.Function
             int? var16 = null, var17, var18 = 9;
             int var19 = idade, var20 = dias;
 
-            // Usando conversões cast
-            int var21 = (int)1;
-            int var22 = (int)1 + (int)2;
-            int var23 = (int)1 + ((int)2 - ((int)3 + 5) - (int)3);
+            //// Usando conversões cast
+            //int var21 = (int)1;
+            //int var22 = (int)1 + (int)2;
+            //int var23 = (int)1 + ((int)2 - ((int)3 + 5) - (int)3);
 
-            // Usando conversões cast estranhas
-            int var24 = (int)(((5)));
-            int var25 = (int)(1 + 2 + 3);
-            int var26 = (int)(((1 + 2 + 3))) - 2;
-            int var27 = (int)(((1 + (2) + ((3))))) - ((int)((2)));
+            //// Usando conversões cast estranhas
+            //int var24 = (int)(((5)));
+            //int var25 = (int)(1 + 2 + 3);
+            //int var26 = (int)(((1 + 2 + 3))) - 2;
+            //int var27 = (int)(((1 + (2) + ((3))))) - ((int)((2)));
 
-            return idade;
+            int result = var3 + var4 + var5 + var6 + var20;
+
+            return result;
         }
     }
 }

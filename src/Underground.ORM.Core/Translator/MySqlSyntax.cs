@@ -10,17 +10,17 @@ namespace Urderground.ORM.Core.Translator
 
         public string Statement { get; private set; }
 
-        public List<string> Code { get; private set; }
+        public List<string> SourceCode { get; private set; }
 
         public MySqlSyntax(MethodInfo method, 
                            string routineName,
                            string statement, 
-                           List<string> code)
+                           List<string> sourceCode)
         {
             Method = method;
             RoutineName = routineName;
             Statement = statement;
-            Code = code;
+            SourceCode = sourceCode;
         }
     }
 }

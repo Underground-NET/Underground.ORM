@@ -8,7 +8,7 @@ namespace Urderground.ORM.Core.Translator
 {
     public class MySqlTranslator
     {
-        public MySqlSyntax TranslateToFunctionCreateSyntax(MethodInfo method, object?[] values)
+        public MySqlSyntax TranslateToFunctionCreateSyntax(MethodInfo method)
         {
             var functionAttribute = method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
 
@@ -23,8 +23,8 @@ namespace Urderground.ORM.Core.Translator
 
             var parametersIn = parameters
                 .Select(x => new MySqlParameterDbType(x.Name,
-                                                 GetDbType(x.ParameterType),
-                                                 x.ParameterType)).ToList();
+                                                      GetDbType(x.ParameterType),
+                                                      x.ParameterType)).ToList();
 
             #endregion
 
