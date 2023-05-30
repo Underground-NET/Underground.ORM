@@ -9,7 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{41CF8A3B-097
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{33290061-53C6-4D0F-B545-E9B6509D8C53}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Urderground.ORM.CoreTests", "src\Urderground.ORM.CoreTests\Urderground.ORM.CoreTests.csproj", "{21B21A94-7A98-4FAE-9518-FF3C16BF5469}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Urderground.ORM.CoreTests", "src\Urderground.ORM.CoreTests\Urderground.ORM.CoreTests.csproj", "{21B21A94-7A98-4FAE-9518-FF3C16BF5469}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
