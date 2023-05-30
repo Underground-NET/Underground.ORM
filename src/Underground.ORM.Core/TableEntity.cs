@@ -1,6 +1,8 @@
-﻿namespace MySqlOrm.Core
+﻿using Urderground.ORM.Core.Entity;
+
+namespace Urderground.ORM.Core
 {
-    public class TableEntity : MySqlOrmEntity
+    public class TableEntity : OrmBaseEntity
     {
         public string Nome { get; set; }
 

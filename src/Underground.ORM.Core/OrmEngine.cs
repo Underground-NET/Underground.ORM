@@ -1,26 +1,32 @@
 ﻿using Microsoft.CodeAnalysis;
 using MySqlConnector;
-using MySqlOrm.Core.Attributes;
-using MySqlOrm.Core.Translator;
 using System.Data;
 using System.Reflection;
+using Urderground.ORM.Core.Attributes;
+using Urderground.ORM.Core.Entity;
+using Urderground.ORM.Core.Translator;
 
-namespace MySqlOrm.Core.Internals
+namespace Urderground.ORM.Core
 {
-    public partial class MySqlOrmEngine
+    public partial class OrmEngine
     {
-        private static readonly List<(MethodInfo, OrmFunctionScopeAttribute)> Functions = new();
-        private static readonly List<(MethodInfo, OrmProcedureScopeAttribute)> Procedures = new();
+        private static readonly List<(MethodInfo, MySqlFunctionScopeAttribute)> Functions = new();
+        private static readonly List<(MethodInfo, MySqlProcedureScopeAttribute)> Procedures = new();
 
         private MySqlConnection _connection;
         private string _connectionString;
 
-        public MySqlOrmEngine(string connectionString)
+        public OrmEngine()
+        {
+
+        }
+
+        public OrmEngine(string connectionString)
         {
             _connectionString = connectionString;
         }
 
-        static MySqlOrmEngine()
+        static OrmEngine()
         {
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
@@ -30,14 +36,14 @@ namespace MySqlOrm.Core.Internals
                 {
                     foreach (var method in type.GetMethods())
                     {
-                        var functionAttribute = method.GetCustomAttribute<OrmFunctionScopeAttribute>();
+                        var functionAttribute = method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
 
                         if (functionAttribute != null)
                         {
                             Functions.Add((method, functionAttribute));
                         }
 
-                        var procedureAttribute = method.GetCustomAttribute<OrmProcedureScopeAttribute>();
+                        var procedureAttribute = method.GetCustomAttribute<MySqlProcedureScopeAttribute>();
 
                         if (procedureAttribute != null)
                         {
@@ -59,27 +65,27 @@ namespace MySqlOrm.Core.Internals
             return _connection.CreateCommand();
         }
 
-        public void Insert<T>(T model) where T : MySqlOrmEntity
+        public void Insert<T>(T model) where T : OrmBaseEntity
         {
 
         }
 
-        public void InsertIgnore<T>(T model) where T : MySqlOrmEntity
+        public void InsertIgnore<T>(T model) where T : OrmBaseEntity
         {
 
         }
 
-        public void Update<T>(T model) where T : MySqlOrmEntity
+        public void Update<T>(T model) where T : OrmBaseEntity
         {
 
         }
 
-        public void UpdateOnDuplicateKey<T>(T model) where T : MySqlOrmEntity
+        public void UpdateOnDuplicateKey<T>(T model) where T : OrmBaseEntity
         {
 
         }
 
-        public void Delete<T>(T model) where T : MySqlOrmEntity
+        public void Delete<T>(T model) where T : OrmBaseEntity
         {
 
         }
@@ -115,46 +121,21 @@ namespace MySqlOrm.Core.Internals
         }
 
         private string RunFunctionInternal(object function,
-                                         MethodInfo method,
-                                         object?[] values)
+                                           MethodInfo method,
+                                           object?[] values)
         {
             MySqlTranslator translator = new();
 
-            var functionAttribute = method.GetCustomAttribute<OrmFunctionScopeAttribute>();
+            string mysqlSyntax = translator.TranslateToMySqlSyntax(method, values);
 
-            if (functionAttribute == null)
-            {
-                throw new NotImplementedException($"Atributo '{nameof(OrmFunctionScopeAttribute)}' não definido para este método");
-            }
-
-            var returnType = method.ReturnType;
-            var returnDbType = translator.GetReturnDbType(returnType);
-
-            #region ParametersIn
-
-            var parameters = method.GetParameters();
-
-            var parametersIn = parameters
-                .Select(x => new ParameterDbType(x.Name,
-                                                            translator.GetDbType(x.ParameterType),
-                                                            x.ParameterType)).ToList();
-
-            #endregion
-
-
-            string createStatement = translator.TranslateToMySqlSyntax(method,
-                                                                   functionAttribute,
-                                                                   returnDbType,
-                                                                   parametersIn,
-                                                                   new(),
-                                                                   new());
+            // TODO: Conectar no banco de dados e criar a função
 
             //var command = GetCommand();
             //command.CommandType = System.Data.CommandType.Text;
             //command.CommandText = createStatement;
             //var affected = command.ExecuteNonQuery();
 
-            return createStatement;
+            return mysqlSyntax;
         }
     }
 }

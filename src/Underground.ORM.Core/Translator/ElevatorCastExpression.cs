@@ -1,8 +1,8 @@
 ﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace MySqlOrm.Core.Translator
+namespace Urderground.ORM.Core.Translator
 {
-    public class ElevatorCast
+    public class ElevatorCastExpression
     {
         public string Function { get; set; }
 

@@ -1,6 +1,6 @@
-﻿namespace MySqlOrm.Core.Translator
+﻿namespace Urderground.ORM.Core.Translator
 {
-    internal class ParameterDbType
+    internal class MySqlParameterDbType
     {
         internal string Argument { get; set; } = "";
 
@@ -8,11 +8,11 @@
 
         internal Type? FromType { get; set; } = null;
 
-        internal List<ParameterDbType> SubTypes { get; set; } = new();
+        internal List<MySqlParameterDbType> SubTypes { get; set; } = new();
 
-        protected ParameterDbType() { }
+        protected MySqlParameterDbType() { }
 
-        internal ParameterDbType(string? argument,
+        internal MySqlParameterDbType(string? argument,
                                  string dbType,
                                  Type? fromType)
         {
@@ -23,14 +23,14 @@
 
         internal void AddSubType(string argument, string dbType, Type? fromType)
         {
-            SubTypes.Add(new ParameterDbType(argument, dbType, fromType));
+            SubTypes.Add(new MySqlParameterDbType(argument, dbType, fromType));
         }
 
         internal static class Factory
         {
-            internal static ParameterDbType Create()
+            internal static MySqlParameterDbType Create()
             {
-                return new ParameterDbType();
+                return new MySqlParameterDbType();
             }
         }
     }
