@@ -77,23 +77,27 @@ namespace MySqlOrm.Core.Translator
 
                 #endregion
 
-                var descendantNodesAndTokensAndSelf = statement.DescendantNodesAndTokensAndSelf().ToList();
+                var descendants = statement.DescendantNodesAndTokensAndSelf().ToList();
 
-                TranslateToMySql(csFileContent,
-                                 descendantNodesAndTokensAndSelf,
-                                 mysqlSyntaxOut);
+                TranslateStatementToMySql(csFileContent,
+                                          descendants,
+                                          mysqlSyntaxOut);
 
             }
         }
 
-        private void TranslateToMySql(string csFileContent,
-                                     List<SyntaxNodeOrToken> descendants,
-                                     StringBuilder mysqlSyntaxOut)
+        private void TranslateStatementToMySql(string csFileContent,
+                                               List<SyntaxNodeOrToken> descendants,
+                                               StringBuilder mysqlSyntaxOut)
         {
             foreach (var item in descendants)
             {
                 var variableDeclaration = item.AsNode() as VariableDeclarationSyntax;
                 var returnStatementSyntax = item.AsNode() as ReturnStatementSyntax;
+                var ifStatementSyntax = item.AsNode() as IfStatementSyntax;
+                var expressionSyntax = item.AsNode() as ExpressionSyntax;
+                var expressionStatementSyntax = item.AsNode() as ExpressionStatementSyntax;
+                var assignmentExpressionSyntax = item.AsNode() as AssignmentExpressionSyntax;
 
                 if (variableDeclaration != null)
                 {
@@ -102,11 +106,99 @@ namespace MySqlOrm.Core.Translator
                                                 mysqlSyntaxOut);
                 }
 
+                if (ifStatementSyntax != null)
+                {
+                    TranslateIfToMySql(csFileContent,
+                                       ifStatementSyntax.DescendantNodesAndTokensAndSelf().ToList(),
+                                       mysqlSyntaxOut);
+                }
+
+                if (assignmentExpressionSyntax != null)
+                {
+                    mysqlSyntaxOut.AppendLine("SET ");
+
+                    var left = assignmentExpressionSyntax.Left as ExpressionSyntax;
+                    var leftIdentifierNameSyntax = left as IdentifierNameSyntax;
+                    
+
+                    mysqlSyntaxOut.Append(" = ");
+
+                    var right = assignmentExpressionSyntax.Right as ExpressionSyntax;
+                    var rightDescendents = right.GetAnnotatedNodesAndTokens().ToList();
+
+                    var rightExpression = TranslateExpressionToMySql(csFileContent,
+                                                    new List<SyntaxNodeOrToken>() { right });
+
+
+                }
+
+                if (expressionStatementSyntax != null)
+                {
+
+                }
+
                 if (returnStatementSyntax != null)
                 {
                     TranslateReturnsToMySql(csFileContent,
                                             returnStatementSyntax.DescendantNodesAndTokensAndSelf().ToList(),
                                             mysqlSyntaxOut);
+                }
+            }
+        }
+
+        private void TranslateIfToMySql(string csFileContent,
+                                                List<SyntaxNodeOrToken> descendants,
+                                                StringBuilder mysqlSyntaxOut)
+        {
+            foreach (var item in descendants)
+            {
+                string contentDeclaration = csFileContent[item.Span.Start..item.Span.End];
+
+                var node = item.AsNode();
+                var token = item.AsToken();
+
+                var ifStatementSyntax = node as IfStatementSyntax;
+                var expressionSyntax = node as ExpressionSyntax;
+
+                if (ifStatementSyntax != null)
+                {
+                    mysqlSyntaxOut.Append("IF(");
+
+                    var condition = ifStatementSyntax.Condition;
+                    var conditionDescendants = condition.DescendantNodesAndTokensAndSelf().ToList();
+                    var conditionTranslated = TranslateExpressionToMySql(csFileContent, conditionDescendants);
+                    
+                    mysqlSyntaxOut.Append(string.Join("", conditionTranslated));
+                    mysqlSyntaxOut.AppendLine(")THEN");
+
+                    var statementSyntax = ifStatementSyntax.Statement;
+
+                    TranslateStatementToMySql(csFileContent,
+                                              statementSyntax.DescendantNodesAndTokensAndSelf().ToList(),
+                                              mysqlSyntaxOut);
+
+                    var elseSyntax = ifStatementSyntax?.Else;
+
+                    if (elseSyntax != null)
+                    {
+                        mysqlSyntaxOut.AppendLine("ELSE");
+
+                        TranslateStatementToMySql(csFileContent,
+                                                  elseSyntax.DescendantNodesAndTokensAndSelf().ToList(),
+                                                  mysqlSyntaxOut);
+
+                        mysqlSyntaxOut.AppendLine("END IF");
+                    }
+                }
+                else if (expressionSyntax != null)
+                {
+                    
+                }
+                else
+                {
+                    //if ((token.Parent as IfStatementSyntax) != null) continue;
+
+                    //mysqlStatement.Add(token.ValueText);
                 }
             }
         }
@@ -321,7 +413,6 @@ namespace MySqlOrm.Core.Translator
                     }
                     else if (binaryExpressionSyntax != null)
                     {
-                        string operatorToken = binaryExpressionSyntax.OperatorToken.ValueText;
 
                         #region Close parenthese with mysql cast conversion
 
@@ -332,6 +423,13 @@ namespace MySqlOrm.Core.Translator
                             elevatorCast.RemoveAt(elevatorCast.Count - 1);
                         }
                         #endregion
+
+                        string operatorToken = binaryExpressionSyntax.OperatorToken.ValueText;
+
+                        if (operatorToken == "==")
+                        {
+                            operatorToken = "=";
+                        }
 
                         mysqlExpression.Add(operatorToken);
                     }
