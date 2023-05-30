@@ -8,7 +8,7 @@ namespace Urderground.ORM.Core.Translator
 {
     public class MySqlTranslator
     {
-        public string TranslateToMySqlSyntax(MethodInfo method, object?[] values)
+        public MySqlSyntax TranslateToMySqlSyntax(MethodInfo method, object?[] values)
         {
             var functionAttribute = method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
 
@@ -58,8 +58,11 @@ namespace Urderground.ORM.Core.Translator
             var parametersInFunction = string.Join(", ", parametersIn.Select(x => $"`{x.Argument}` {x.DbType}"));
 
             mysqlSyntaxOut.Add($"CREATE FUNCTION `{functionAttribute.Name}` ({parametersInFunction})");
+            mysqlSyntaxOut.Add("\n");
             mysqlSyntaxOut.Add($"RETURNS {mysqlReturnDbType.DbType}");
+            mysqlSyntaxOut.Add("\n");
             mysqlSyntaxOut.Add("BEGIN");
+            mysqlSyntaxOut.Add("\n");
 
             foreach (var ds in cds.Members)
             {
@@ -80,7 +83,8 @@ namespace Urderground.ORM.Core.Translator
 
             mysqlSyntaxOut.Add("END;");
 
-            return string.Join("", mysqlSyntaxOut);
+            return new MySqlSyntax(string.Join("", mysqlSyntaxOut), 
+                                   mysqlSyntaxOut);
         }
 
         private void ConvertMethodBlockSyntax(BlockSyntax block,
@@ -93,7 +97,7 @@ namespace Urderground.ORM.Core.Translator
             {
                 string codeLine = csFileContent[statement.Span.Start..statement.Span.End];
                 string fullCodeLine = csFileContent[statement.FullSpan.Start..statement.FullSpan.End];
-                var fullCodeLines = fullCodeLine.TrimEnd().Split(Environment.NewLine)
+                var fullCodeLines = fullCodeLine.TrimEnd().Split("\n")
                                                      .Select(x => x.Trim()).ToList();
 
                 #region Comments
@@ -103,10 +107,10 @@ namespace Urderground.ORM.Core.Translator
                     if (line.StartsWith("//"))
                     {
                         mysqlSyntaxOut.Add("# " + line[2..].Trim());
-                        mysqlSyntaxOut.Add(Environment.NewLine);
+                        mysqlSyntaxOut.Add("\n");
                     }
                     else if (string.IsNullOrEmpty(line.Trim()))
-                        mysqlSyntaxOut.Add(Environment.NewLine);
+                        mysqlSyntaxOut.Add("\n");
                 }
 
                 #endregion
@@ -150,7 +154,7 @@ namespace Urderground.ORM.Core.Translator
                 if (assignmentExpressionSyntax != null)
                 {
                     mysqlSyntaxOut.Add("SET ");
-                    mysqlSyntaxOut.Add(Environment.NewLine);
+                    mysqlSyntaxOut.Add("\n");
 
                     var left = assignmentExpressionSyntax.Left as ExpressionSyntax;
                     var leftIdentifierNameSyntax = left as IdentifierNameSyntax;
@@ -205,7 +209,7 @@ namespace Urderground.ORM.Core.Translator
 
                     mysqlSyntaxOut.Append(string.Join("", conditionTranslated));
                     mysqlSyntaxOut.Add(")THEN");
-                    mysqlSyntaxOut.Add(Environment.NewLine);
+                    mysqlSyntaxOut.Add("\n");
 
                     var statementSyntax = ifStatementSyntax.Statement;
 
@@ -218,14 +222,14 @@ namespace Urderground.ORM.Core.Translator
                     if (elseSyntax != null)
                     {
                         mysqlSyntaxOut.Add("ELSE");
-                        mysqlSyntaxOut.Add(Environment.NewLine);
+                        mysqlSyntaxOut.Add("\n");
 
                         TranslateStatementToMySql(csFileContent,
                                                   elseSyntax.DescendantNodesAndTokensAndSelf().ToList(),
                                                   mysqlSyntaxOut);
 
                         mysqlSyntaxOut.Add("END IF");
-                        mysqlSyntaxOut.Add(Environment.NewLine);
+                        mysqlSyntaxOut.Add("\n");
 
                     }
                 }
@@ -275,7 +279,7 @@ namespace Urderground.ORM.Core.Translator
             }
 
             mysqlSyntaxOut.Add(string.Join("", mysqlStatement) + ";");
-            mysqlSyntaxOut.Add(Environment.NewLine);
+            mysqlSyntaxOut.Add("\n");
 
             return mysqlStatement;
         }
@@ -398,7 +402,7 @@ namespace Urderground.ORM.Core.Translator
             var mysqlStatement = string.Join("", mysqlDeclare.OrderBy(x => x.Key).Select(x => x.Value));
 
             mysqlSyntaxOut.Add(mysqlStatement + ";");
-            mysqlSyntaxOut.Add(Environment.NewLine);
+            mysqlSyntaxOut.Add("\n");
 
             mysqlDeclare.Clear();
 

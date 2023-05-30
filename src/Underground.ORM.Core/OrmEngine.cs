@@ -90,43 +90,43 @@ namespace Urderground.ORM.Core
 
         }
 
-        public string RunFunction<T1>(Func<T1> function)
+        public MySqlSyntax RunFunction<T1>(Func<T1> function)
         {
-            return RunFunctionInternal(function, function.GetMethodInfo(), Array.Empty<object?>());
+            return CreateFunctionInternal(function, function.GetMethodInfo(), Array.Empty<object?>());
         }
 
-        public string RunFunction<T1, T2>(Func<T1, T2> function, T1 arg1)
+        public MySqlSyntax RunFunction<T1, T2>(Func<T1, T2> function, T1 arg1)
         {
-            return RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1 });
+            return CreateFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1 });
         }
 
-        public string RunFunction<T1, T2, T3>(Func<T1, T2, T3> function, T1 arg1, T2 arg2)
+        public MySqlSyntax CreateFunctionStatement<T1, T2, T3>(Func<T1, T2, T3> function, T1 arg1, T2 arg2)
         {
-            return RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2 });
+            return CreateFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2 });
         }
 
-        public string RunFunction<T1, T2, T3, T4>(Func<T1, T2, T3, T4> function, T1 arg1, T2 arg2, T3 arg3)
+        public MySqlSyntax RunFunction<T1, T2, T3, T4>(Func<T1, T2, T3, T4> function, T1 arg1, T2 arg2, T3 arg3)
         {
-            return RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3 });
+            return CreateFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3 });
         }
 
-        public string RunFunction<T1, T2, T3, T4, T5>(Func<T1, T2, T3, T4, T5> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
+        public MySqlSyntax RunFunction<T1, T2, T3, T4, T5>(Func<T1, T2, T3, T4, T5> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
         {
-            return RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4 });
+            return CreateFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4 });
         }
 
-        public string RunFunction<T1, T2, T3, T4, T5, T6>(Func<T1, T2, T3, T4, T5, T6> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
+        public MySqlSyntax RunFunction<T1, T2, T3, T4, T5, T6>(Func<T1, T2, T3, T4, T5, T6> function, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
         {
-            return RunFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4, arg5 });
+            return CreateFunctionInternal(function, function.GetMethodInfo(), new object?[] { arg1, arg2, arg3, arg4, arg5 });
         }
 
-        private string RunFunctionInternal(object function,
-                                           MethodInfo method,
-                                           object?[] values)
+        private MySqlSyntax CreateFunctionInternal(object function,
+                                              MethodInfo method,
+                                              object?[] values)
         {
             MySqlTranslator translator = new();
 
-            string mysqlSyntax = translator.TranslateToMySqlSyntax(method, values);
+            var mysqlSyntax = translator.TranslateToMySqlSyntax(method, values);
 
             // TODO: Conectar no banco de dados e criar a função
 

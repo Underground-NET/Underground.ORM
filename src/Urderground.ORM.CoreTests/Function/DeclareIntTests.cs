@@ -17,7 +17,9 @@ namespace Urderground.ORM.CoreTests
         [TestMethod()]
         public void DeclareIntTest()
         {
-            string mysqlSyntax = _engine.RunFunction(FuncaoDeclareInt, 10, 20);
+            var mysqlSyntax = _engine.CreateFunctionStatement(FuncaoDeclareInt, 10, 20);
+
+            // "DECLARE `var27` INT DEFAULT CAST((((1+(2)+((3))))) AS SIGNED INT)-(CAST(((2)) AS SIGNED INT));";
         }
 
         [MySqlFunctionScope(nameof(DeclareIntTest))]
@@ -43,7 +45,13 @@ namespace Urderground.ORM.CoreTests
             // Usando conversões cast
             int var21 = (int)1;
             int var22 = (int)1 + (int)2;
-            int var23 = (int)1 + (int)2 - ((int)3 + 5) - (int)(1 + 2 + 3);
+            int var23 = (int)1 + ((int)2 - ((int)3 + 5) - (int)3);
+
+            // Usando conversões cast estranhas
+            int var24 = (int)(((5)));
+            int var25 = (int)(1 + 2 + 3);
+            int var26 = (int)(((1 + 2 + 3))) - 2;
+            int var27 = (int)(((1 + (2) + ((3))))) - ((int)((2)));
 
             return idade;
         }
