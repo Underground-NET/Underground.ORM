@@ -1,6 +1,6 @@
 ﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace Urderground.ORM.Core.Translator
+namespace Urderground.ORM.Core.Translator.CastExpression
 {
     public class ElevatorCastExpression
     {

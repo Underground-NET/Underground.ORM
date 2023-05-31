@@ -3,12 +3,15 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Reflection;
 using Urderground.ORM.Core.Attributes;
+using Urderground.ORM.Core.Translator.CastExpression;
+using Urderground.ORM.Core.Translator.List;
+using Urderground.ORM.Core.Translator.Parameter;
 
 namespace Urderground.ORM.Core.Translator
 {
     public class MySqlTranslator
     {
-        public MySqlSyntax TranslateToFunctionCreateSyntax(MethodInfo method)
+        public MySqlSyntaxBuilt TranslateToFunctionCreateSyntax(MethodInfo method)
         {
             var functionAttribute = method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
 
@@ -53,16 +56,13 @@ namespace Urderground.ORM.Core.Translator
             var nds = (NamespaceDeclarationSyntax)root.Members[0];
             var cds = (ClassDeclarationSyntax)nds.Members[0];
 
-            List<string> mysqlSyntaxOut = new();
+            MySqlSyntaxList mysqlSyntaxOut = new();
 
             var parametersInFunction = string.Join(", ", parametersIn.Select(x => $"`{x.Argument}` {x.DbType}"));
 
-            mysqlSyntaxOut.Add($"CREATE FUNCTION `{functionAttribute.RoutineName}` ({parametersInFunction})");
-            mysqlSyntaxOut.Add("\n");
-            mysqlSyntaxOut.Add($"RETURNS {mysqlReturnDbType.DbType}");
-            mysqlSyntaxOut.Add("\n");
-            mysqlSyntaxOut.Add("BEGIN");
-            mysqlSyntaxOut.Add("\n");
+            mysqlSyntaxOut.AppendLine("CREATE ", "FUNCTION ", $"`{functionAttribute.RoutineName}`", "(", $"{parametersInFunction}", ")");
+            mysqlSyntaxOut.AppendLine("RETURNS ", $"{mysqlReturnDbType.DbType}");
+            mysqlSyntaxOut.AppendLine("BEGIN");
 
             foreach (var ds in cds.Members)
             {
@@ -81,17 +81,17 @@ namespace Urderground.ORM.Core.Translator
                 }
             }
 
-            mysqlSyntaxOut.Add("END;");
+            mysqlSyntaxOut.Append("END", ";");
 
-            return new MySqlSyntax(method,
-                                   functionAttribute.RoutineName,
-                                   string.Join("", mysqlSyntaxOut), 
-                                   mysqlSyntaxOut);
+            return new MySqlSyntaxBuilt(method,
+                                        functionAttribute.RoutineName,
+                                        string.Join("", mysqlSyntaxOut.Select(x => x.Token + (x.NewLine ? "\n" : ""))), 
+                                        mysqlSyntaxOut);
         }
 
         private void ConvertMethodBlockSyntax(BlockSyntax block,
                                               string csFileContent,
-                                              List<string> mysqlSyntaxOut)
+                                              MySqlSyntaxList mysqlSyntaxOut)
         {
             var statements = block.Statements;
 
@@ -108,11 +108,10 @@ namespace Urderground.ORM.Core.Translator
                 {
                     if (line.StartsWith("//"))
                     {
-                        mysqlSyntaxOut.Add("# " + line[2..].Trim());
-                        mysqlSyntaxOut.Add("\n");
+                        mysqlSyntaxOut.AppendLine("# " + line[2..].Trim());
                     }
                     else if (string.IsNullOrEmpty(line.Trim()))
-                        mysqlSyntaxOut.Add("\n");
+                        mysqlSyntaxOut.AppendLine();
                 }
 
                 #endregion
@@ -128,7 +127,7 @@ namespace Urderground.ORM.Core.Translator
 
         private void TranslateStatementToMySql(string csFileContent,
                                                List<SyntaxNodeOrToken> descendants,
-                                               List<string> mysqlSyntaxOut)
+                                               MySqlSyntaxList mysqlSyntaxOut)
         {
             foreach (var item in descendants)
             {
@@ -155,8 +154,7 @@ namespace Urderground.ORM.Core.Translator
 
                 if (assignmentExpressionSyntax != null)
                 {
-                    mysqlSyntaxOut.Add("SET ");
-                    mysqlSyntaxOut.Add("\n");
+                    mysqlSyntaxOut.AppendLine("SET ");
 
                     var left = assignmentExpressionSyntax.Left as ExpressionSyntax;
                     var leftIdentifierNameSyntax = left as IdentifierNameSyntax;
@@ -189,7 +187,7 @@ namespace Urderground.ORM.Core.Translator
 
         private void TranslateIfToMySql(string csFileContent,
                                                 List<SyntaxNodeOrToken> descendants,
-                                                List<string> mysqlSyntaxOut)
+                                                MySqlSyntaxList mysqlSyntaxOut)
         {
             foreach (var item in descendants)
             {
@@ -203,15 +201,14 @@ namespace Urderground.ORM.Core.Translator
 
                 if (ifStatementSyntax != null)
                 {
-                    mysqlSyntaxOut.Append("IF(");
+                    mysqlSyntaxOut.Append("IF", "(");
 
                     var condition = ifStatementSyntax.Condition;
                     var conditionDescendants = condition.DescendantNodesAndTokensAndSelf().ToList();
                     var conditionTranslated = TranslateExpressionToMySql(csFileContent, conditionDescendants);
 
-                    mysqlSyntaxOut.Append(string.Join("", conditionTranslated));
-                    mysqlSyntaxOut.Add(")THEN");
-                    mysqlSyntaxOut.Add("\n");
+                    mysqlSyntaxOut.AppendRange(conditionTranslated);
+                    mysqlSyntaxOut.AppendLine(")", "THEN");
 
                     var statementSyntax = ifStatementSyntax.Statement;
 
@@ -223,15 +220,13 @@ namespace Urderground.ORM.Core.Translator
 
                     if (elseSyntax != null)
                     {
-                        mysqlSyntaxOut.Add("ELSE");
-                        mysqlSyntaxOut.Add("\n");
+                        mysqlSyntaxOut.AppendLine("ELSE");
 
                         TranslateStatementToMySql(csFileContent,
                                                   elseSyntax.DescendantNodesAndTokensAndSelf().ToList(),
                                                   mysqlSyntaxOut);
 
-                        mysqlSyntaxOut.Add("END IF");
-                        mysqlSyntaxOut.Add("\n");
+                        mysqlSyntaxOut.AppendLine("END IF");
 
                     }
                 }
@@ -248,11 +243,11 @@ namespace Urderground.ORM.Core.Translator
             }
         }
 
-        private List<string> TranslateReturnsToMySql(string csFileContent,
-                                                     List<SyntaxNodeOrToken> descendants,
-                                                     List<string> mysqlSyntaxOut)
+        private MySqlSyntaxList TranslateReturnsToMySql(string csFileContent,
+                                                        List<SyntaxNodeOrToken> descendants,
+                                                        MySqlSyntaxList mysqlSyntaxOut)
         {
-            List<string> mysqlStatement = new();
+            MySqlSyntaxList mysqlStatement = new();
 
             foreach (var item in descendants)
             {
@@ -266,7 +261,7 @@ namespace Urderground.ORM.Core.Translator
 
                 if (returnStatementSyntax != null)
                 {
-                    mysqlStatement.Add("RETURN ");
+                    mysqlStatement.Append("RETURN ");
                 }
                 else if (expressionSyntax != null)
                 {
@@ -274,27 +269,25 @@ namespace Urderground.ORM.Core.Translator
 
                     var expTranslated = TranslateExpressionToMySql(csFileContent, descendantExpression);
 
-                    mysqlStatement.AddRange(expTranslated);
+                    mysqlStatement.AppendRange(expTranslated);
 
                     break;
                 }
             }
 
-            mysqlSyntaxOut.Add(string.Join("", mysqlStatement) + ";");
-            mysqlSyntaxOut.Add("\n");
+            mysqlSyntaxOut.AppendRange(mysqlStatement);
+            mysqlSyntaxOut.AppendLine(";");
 
             return mysqlStatement;
         }
 
-        private List<string> TranslateDeclarationToMySql(string csFileContent,
-                                                         List<SyntaxNodeOrToken> descendants,
-                                                         List<string> mysqlSyntaxOut)
+        private void TranslateDeclarationToMySql(string csFileContent,
+                                                 List<SyntaxNodeOrToken> descendants,
+                                                 MySqlSyntaxList mysqlSyntaxOut)
         {
-            List<string> mysqlStatements = new();
-
-            Dictionary<int, string> mysqlDeclare = new();
-            (int Order, List<string>)? mysqlExpression = null;
-            (int Order, string) mysqlDbType;
+            Dictionary<int, MySqlSyntaxList> mysqlDeclare = new();
+            (int Order, MySqlSyntaxList)? mysqlExpression = null;
+            (int Order, MySqlSyntaxItem) mysqlDbType;
 
             int variablesCount = 0;
             bool defaultValue = false;
@@ -349,12 +342,15 @@ namespace Urderground.ORM.Core.Translator
                 {
                     defaultValue = false;
 
-                    mysqlStatements.AddRange(FinalizeDeclarationStatementMySql(mysqlDeclare, mysqlExpression, mysqlDbType, mysqlSyntaxOut));
+                    FinalizeDeclarationStatementMySql(mysqlDeclare,
+                                                      mysqlExpression,
+                                                      mysqlDbType,
+                                                      mysqlSyntaxOut);
 
                     string variableName = variableDeclarator.Identifier.ValueText;
 
-                    mysqlDeclare.Add(1, "DECLARE ");
-                    mysqlDeclare.Add(2, $"`{variableName}`");
+                    mysqlDeclare.Add(1, new() { "DECLARE " });
+                    mysqlDeclare.Add(2, new() { $"`{variableName}`" });
 
                     variablesCount++;
                 }
@@ -362,59 +358,58 @@ namespace Urderground.ORM.Core.Translator
                 if (equalsValueClauseSyntax != null)
                 {
                     defaultValue = true;
-                    mysqlDeclare.Add(4, " DEFAULT ");
+                    mysqlDeclare.Add(4, new() { " DEFAULT " });
                 }
 
                 if (expressionSyntax != null && defaultValue)
                 {
                     var descendantExpression = expressionSyntax.DescendantNodesAndTokensAndSelf().ToList();
 
-                    var expTranslated = TranslateExpressionToMySql(csFileContent, descendantExpression);
+                    var expTranslated = TranslateExpressionToMySql(csFileContent,
+                                                                   descendantExpression);
 
-                    mysqlStatements.AddRange(
-                        FinalizeDeclarationStatementMySql(mysqlDeclare,
-                                                         (5, expTranslated),
-                                                         mysqlDbType,
-                                                         mysqlSyntaxOut));
+                    FinalizeDeclarationStatementMySql(mysqlDeclare,
+                                                     (5, expTranslated),
+                                                     mysqlDbType,
+                                                     mysqlSyntaxOut);
 
                     defaultValue = false;
                 }
             }
 
-            mysqlStatements.AddRange(FinalizeDeclarationStatementMySql(mysqlDeclare, mysqlExpression, mysqlDbType, mysqlSyntaxOut));
-
-            return mysqlStatements;
+            FinalizeDeclarationStatementMySql(mysqlDeclare,
+                                              mysqlExpression,
+                                              mysqlDbType,
+                                              mysqlSyntaxOut);
         }
 
-        private List<string> FinalizeDeclarationStatementMySql(Dictionary<int, string> mysqlDeclare,
-                                                              (int Order, List<string>)? mysqlExpression,
-                                                              (int Order, string) mysqlDbType,
-                                                              List<string> mysqlSyntaxOut)
+        private void FinalizeDeclarationStatementMySql(Dictionary<int, MySqlSyntaxList> mysqlDeclare,
+                                                      (int Order, MySqlSyntaxList)? mysqlExpression,
+                                                      (int Order, MySqlSyntaxItem) mysqlDbType,
+                                                      MySqlSyntaxList mysqlSyntaxOut)
         {
-            if (!mysqlDeclare.Any()) return new();
+            if (!mysqlDeclare.Any()) return;
 
-            mysqlDeclare.Add(mysqlDbType.Order, mysqlDbType.Item2);
+            mysqlDeclare.Add(mysqlDbType.Order, new() { mysqlDbType.Item2 });
 
             if (mysqlExpression != null)
             {
-                mysqlDeclare.Add(mysqlExpression.Value.Order, string.Join("", mysqlExpression.Value.Item2));
+                mysqlDeclare.Add(mysqlExpression.Value.Order, mysqlExpression.Value.Item2);
             }
 
             // (1)DECLARE (2)`variable` (3)type (4)DEFAULT (5)expression;
-            var mysqlStatement = string.Join("", mysqlDeclare.OrderBy(x => x.Key).Select(x => x.Value));
+            var mysqlStatement = mysqlDeclare.OrderBy(x => x.Key).Select(x => x.Value).ToList();
 
-            mysqlSyntaxOut.Add(mysqlStatement + ";");
-            mysqlSyntaxOut.Add("\n");
+            mysqlSyntaxOut.AppendRange(mysqlStatement);
+            mysqlSyntaxOut.AppendLine(";");
 
             mysqlDeclare.Clear();
-
-            return new List<string>() { mysqlStatement };
         }
 
-        private List<string> TranslateExpressionToMySql(string csFileContent,
-                                                        List<SyntaxNodeOrToken> descendants)
+        private MySqlSyntaxList TranslateExpressionToMySql(string csFileContent,
+                                                           List<SyntaxNodeOrToken> descendants)
         {
-            List<string> mysqlExpression = new();
+            MySqlSyntaxList mysqlExpression = new();
 
             int currentLevel = 0;
             List<ElevatorCastExpression> elevatorCast = new();
@@ -437,11 +432,11 @@ namespace Urderground.ORM.Core.Translator
 
                     if (identifierNameSyntax != null)
                     {
-                        mysqlExpression.Add($"`{token.ValueText}`");
+                        mysqlExpression.Append($"`{token.ValueText}`");
                     }
                     else if (literalExpressionSyntax != null)
                     {
-                        mysqlExpression.Add(token.Text);
+                        mysqlExpression.Append(token.Text);
                     }
                     else if (castExpressionSyntax != null)
                     {
@@ -459,8 +454,8 @@ namespace Urderground.ORM.Core.Translator
                                 Alias = Alias
                             });
 
-                            mysqlExpression.Add(Function);
-                            mysqlExpression.Add("(");
+                            mysqlExpression.Append(Function);
+                            mysqlExpression.Append("(");
                         }
                     }
                     else if (binaryExpressionSyntax != null)
@@ -471,7 +466,7 @@ namespace Urderground.ORM.Core.Translator
                         ElevatorCastExpression lastElevator;
                         if (elevatorCast.Any() && currentLevel == (lastElevator = elevatorCast.Last()).Level)
                         {
-                            mysqlExpression.Add(BuildRightCastFunction(lastElevator));
+                            mysqlExpression.Append(BuildRightCastFunction(lastElevator));
                             elevatorCast.RemoveAt(elevatorCast.Count - 1);
                         }
                         #endregion
@@ -483,13 +478,13 @@ namespace Urderground.ORM.Core.Translator
                             operatorToken = "=";
                         }
 
-                        mysqlExpression.Add(operatorToken);
+                        mysqlExpression.Append(operatorToken);
                     }
                     else if (parenthesizedExpressionSyntax != null)
                     {
                         string parentheseToken = token.Text;
 
-                        mysqlExpression.Add(parentheseToken);
+                        mysqlExpression.Append(parentheseToken);
 
                         if (parentheseToken == "(")
                         {
@@ -508,7 +503,7 @@ namespace Urderground.ORM.Core.Translator
                         }
 
                         // Tokens não tratados podem ser adicionados à expressão
-                        mysqlExpression.Add(token.Text);
+                        mysqlExpression.Append(token.Text);
                     }
                 }
             }
@@ -516,7 +511,7 @@ namespace Urderground.ORM.Core.Translator
             #region Close parentheses with mysql cast conversion
             elevatorCast.ForEach(lastElevator =>
             {
-                mysqlExpression.Add(BuildRightCastFunction(lastElevator));
+                mysqlExpression.Append(BuildRightCastFunction(lastElevator));
             });
             #endregion
 

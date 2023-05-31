@@ -49,16 +49,16 @@ namespace Urderground.ORM.CoreTests.Function
             int? var16 = null, var17, var18 = 9;
             int var19 = idade, var20 = dias;
 
-            //// Usando conversões cast
-            //int var21 = (int)1;
-            //int var22 = (int)1 + (int)2;
-            //int var23 = (int)1 + ((int)2 - ((int)3 + 5) - (int)3);
+            // Usando conversões cast
+            int var21 = (int)1;
+            int var22 = (int)1 + (int)2;
+            int var23 = (int)1 + ((int)2 - ((int)3 + 5) - (int)3);
 
-            //// Usando conversões cast estranhas
-            //int var24 = (int)(((5)));
-            //int var25 = (int)(1 + 2 + 3);
-            //int var26 = (int)(((1 + 2 + 3))) - 2;
-            //int var27 = (int)(((1 + (2) + ((3))))) - ((int)((2)));
+            // Usando conversões cast estranhas
+            int var24 = (int)(((5)));
+            int var25 = (int)(1 + 2 + 3);
+            int var26 = (int)(((1 + 2 + 3))) - 2;
+            int var27 = (int)(((1 + (2) + ((3))))) - ((int)((2)));
 
             int result = var3 + var4 + var5 + var6 + var20;
 
