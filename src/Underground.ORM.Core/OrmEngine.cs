@@ -4,6 +4,7 @@ using System.Reflection;
 using Urderground.ORM.Core.Attributes;
 using Urderground.ORM.Core.Entity;
 using Urderground.ORM.Core.Translator;
+using Urderground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core
 {

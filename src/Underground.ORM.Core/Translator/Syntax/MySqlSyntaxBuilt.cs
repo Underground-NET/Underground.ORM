@@ -1,7 +1,6 @@
 ﻿using System.Reflection;
-using Urderground.ORM.Core.Translator.Syntax;
 
-namespace Urderground.ORM.Core.Translator
+namespace Urderground.ORM.Core.Translator.Syntax
 {
     public class MySqlSyntaxBuilt
     {
@@ -13,9 +12,9 @@ namespace Urderground.ORM.Core.Translator
 
         public MySqlSyntax Syntax { get; private set; }
 
-        public MySqlSyntaxBuilt(MethodInfo method, 
+        public MySqlSyntaxBuilt(MethodInfo method,
                                 string routineName,
-                                string statement, 
+                                string statement,
                                 MySqlSyntax syntax)
         {
             Method = method;
