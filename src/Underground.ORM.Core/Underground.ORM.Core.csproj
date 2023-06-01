@@ -14,7 +14,7 @@
     <PackageTags>orm;underground;underground.net;underground.orm;underground.orm.core;mysql;csharp;c#</PackageTags>
     <Company>Underground.NET</Company>
     <PackageReleaseNotes>Release of the first version for testing. Currently this package is limited to performing syntax conversions of variable declarations from csharp to mysql 8 with int, uint, long, ulong as can be seen in the unit tests of the package.</PackageReleaseNotes>
-    <Version>$(VersionPrefix)</Version>
+    <Version>0.0.0</Version>
     <Authors>Underground.NET, grilo88</Authors>
     <PackageId>Underground.ORM</PackageId>
     <RepositoryUrl>https://github.com/Underground-NET/Underground.ORM</RepositoryUrl>
