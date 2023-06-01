@@ -1,4 +1,4 @@
-﻿namespace Urderground.ORM.Core.Translator
+﻿namespace Urderground.ORM.Core.Translator.Parameter
 {
     internal class MySqlParameterDbType
     {
@@ -13,8 +13,8 @@
         protected MySqlParameterDbType() { }
 
         internal MySqlParameterDbType(string? argument,
-                                 string dbType,
-                                 Type? fromType)
+                                      string dbType,
+                                      Type? fromType)
         {
             Argument = argument ?? "";
             DbType = dbType;

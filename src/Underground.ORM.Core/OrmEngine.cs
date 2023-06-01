@@ -4,6 +4,7 @@ using System.Reflection;
 using Urderground.ORM.Core.Attributes;
 using Urderground.ORM.Core.Entity;
 using Urderground.ORM.Core.Translator;
+using Urderground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core
 {
@@ -209,37 +210,37 @@ namespace Urderground.ORM.Core
 
         #region BuildCreateFunctionStatement
 
-        public MySqlSyntax BuildCreateFunctionStatement<TReturn>(Func<TReturn> function)
+        public MySqlSyntaxBuilt BuildCreateFunctionStatement<TReturn>(Func<TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        public MySqlSyntax BuildCreateFunctionStatement<T1, TReturn>(Func<T1, TReturn> function)
+        public MySqlSyntaxBuilt BuildCreateFunctionStatement<T1, TReturn>(Func<T1, TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        public MySqlSyntax BuildFunctionCreateStatement<T1, T2, TReturn>(Func<T1, T2, TReturn> function)
+        public MySqlSyntaxBuilt BuildFunctionCreateStatement<T1, T2, TReturn>(Func<T1, T2, TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, TReturn>(Func<T1, T2, T3, TReturn> function)
+        public MySqlSyntaxBuilt BuildCreateFunctionStatement<T1, T2, T3, TReturn>(Func<T1, T2, T3, TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, T4, TReturn>(Func<T1, T2, T3, T4, TReturn> function)
+        public MySqlSyntaxBuilt BuildCreateFunctionStatement<T1, T2, T3, T4, TReturn>(Func<T1, T2, T3, T4, TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        public MySqlSyntax BuildCreateFunctionStatement<T1, T2, T3, T4, T5, TReturn>(Func<T1, T2, T3, T4, T5, TReturn> function)
+        public MySqlSyntaxBuilt BuildCreateFunctionStatement<T1, T2, T3, T4, T5, TReturn>(Func<T1, T2, T3, T4, T5, TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        private MySqlSyntax BuildFunctionCreateStatement(MethodInfo method)
+        private MySqlSyntaxBuilt BuildFunctionCreateStatement(MethodInfo method)
          {
             MySqlTranslator translator = new();
 
@@ -250,7 +251,7 @@ namespace Urderground.ORM.Core
 
         #endregion
 
-        public async Task<int> UpdateDatabaseAsync(MySqlSyntax mysqlSyntax, CancellationToken ct = default)
+        public async Task<int> UpdateDatabaseAsync(MySqlSyntaxBuilt mysqlSyntax, CancellationToken ct = default)
         {
             var functionAttribute = mysqlSyntax.Method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
 
