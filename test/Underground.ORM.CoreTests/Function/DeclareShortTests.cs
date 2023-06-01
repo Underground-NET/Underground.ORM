@@ -30,7 +30,7 @@ namespace Urderground.ORM.CoreTests.Function
         }
 
         [TestMethod()]
-        public async Task DeclareUIntTest()
+        public async Task DeclareUShortTest()
         {
             var function = _orm.BuildFunctionCreateStatement<ushort, ushort, ushort>(DeclareUShortFunctionTest);
             Debug.Print(function.Statement);
