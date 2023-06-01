@@ -135,11 +135,11 @@ namespace Urderground.ORM.Core.Translator
         {
             if (castType == "ulong")
             {
-                return ("CAST", new("UNSIGNED ", "BIGINT"));
+                return ("CAST", new("UNSIGNED"));
             }
             else if (castType == "long")
             {
-                return ("CAST", new("SIGNED ", "BIGINT"));
+                return ("CAST", new("SIGNED"));
             }
             else if (castType == "uint")
             {
@@ -148,6 +148,14 @@ namespace Urderground.ORM.Core.Translator
             else if (castType == "int")
             {
                 return ("CAST", new("SIGNED ", "INT"));
+            }
+            else if (castType == "short")
+            {
+                return ("CAST", new("SIGNED"));
+            }
+            else if (castType == "ushort")
+            {
+                return ("CAST", new("UNSIGNED"));
             }
             else if (castType == "char")
             {
