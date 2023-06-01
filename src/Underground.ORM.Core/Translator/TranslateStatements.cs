@@ -1,6 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Urderground.ORM.Core.Translator.List;
+using Urderground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -8,7 +8,7 @@ namespace Urderground.ORM.Core.Translator
     {
         private void TranslateStatements(string csFileContent,
                                          List<SyntaxNodeOrToken> descendants,
-                                         MySqlSyntaxList mysqlSyntaxOut)
+                                         MySqlSyntax mysqlSyntaxOut)
         {
             foreach (var item in descendants)
             {
@@ -47,7 +47,8 @@ namespace Urderground.ORM.Core.Translator
                     var rightDescendents = right.GetAnnotatedNodesAndTokens().ToList();
 
                     var rightExpression = TranslateExpressionStatement(csFileContent,
-                                                                       new List<SyntaxNodeOrToken>() { right });
+                                                                       new List<SyntaxNodeOrToken>() { right },
+                                                                       mysqlSyntaxOut);
 
 
                 }

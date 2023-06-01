@@ -1,13 +1,13 @@
 ﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Urderground.ORM.Core.Translator.List;
+using Urderground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core.Translator
 {
     public partial class MySqlTranslator
     {
-        private void ConvertMethodBlockSyntax(BlockSyntax block,
-                                              string csFileContent,
-                                              MySqlSyntaxList mysqlSyntaxOut)
+        private void TranslateMethodBlockSyntax(BlockSyntax block,
+                                                string csFileContent,
+                                                MySqlSyntax mysqlSyntaxOut)
         {
             var statements = block.Statements;
 

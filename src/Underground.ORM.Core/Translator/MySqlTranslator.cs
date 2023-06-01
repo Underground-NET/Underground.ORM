@@ -3,8 +3,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Reflection;
 using Urderground.ORM.Core.Attributes;
-using Urderground.ORM.Core.Translator.List;
 using Urderground.ORM.Core.Translator.Parameter;
+using Urderground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -55,13 +55,14 @@ namespace Urderground.ORM.Core.Translator
             var nds = (NamespaceDeclarationSyntax)root.Members[0];
             var cds = (ClassDeclarationSyntax)nds.Members[0];
 
-            MySqlSyntaxList mysqlSyntaxOut = new();
+            MySqlSyntax mysqlSyntaxOut = new();
 
-            var arguments = parametersIn.Select(x => new MySqlSyntaxList() {
-                new MySqlSyntaxItem($"`{x.Argument}` "),
-                new MySqlSyntaxItem($"{x.DbType}"),
-                new MySqlSyntaxItem(", "),
-            }).ToList();
+            var arguments = parametersIn
+                .Select(x => new MySqlSyntax() 
+                {
+                    $"`{x.Argument}` ", x.DbType, ", ",
+                }).ToList();
+
             arguments.Last().RemoveLast();
 
             mysqlSyntaxOut.Append("CREATE ", "FUNCTION ", $"`{functionAttribute.RoutineName}`", "(");
@@ -79,7 +80,7 @@ namespace Urderground.ORM.Core.Translator
 
                     if (methodName == method.Name)
                     {
-                        ConvertMethodBlockSyntax(mds.Body!, csFileContent, mysqlSyntaxOut);
+                        TranslateMethodBlockSyntax(mds.Body!, csFileContent, mysqlSyntaxOut);
                         break;
                     }
                 }

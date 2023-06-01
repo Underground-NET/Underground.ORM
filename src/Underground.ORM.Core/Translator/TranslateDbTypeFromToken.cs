@@ -1,11 +1,11 @@
-﻿using Urderground.ORM.Core.Translator.List;
+﻿using Urderground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core.Translator
 {
     public partial class MySqlTranslator
     {
-        private MySqlSyntaxList TranslateDbTypeFromToken(string tokenType,
-                                                         string contentDeclaration)
+        private MySqlSyntax TranslateDbTypeFromToken(string tokenType,
+                                                     string contentDeclaration)
         {
             if (tokenType == "var")
             {
@@ -39,11 +39,11 @@ namespace Urderground.ORM.Core.Translator
             }
             else if (tokenType == "byte" || tokenType == "Byte" || tokenType == "System.Byte")
             {
-                return new MySqlSyntaxList("TINYINT ", "UNSIGNED ");
+                return new MySqlSyntax("TINYINT ", "UNSIGNED ");
             }
             else if (tokenType == "string" || tokenType == "String" || tokenType == "System.String")
             {
-                return new MySqlSyntaxList("VARCHAR", "(", "255", ") ");
+                return new MySqlSyntax("VARCHAR", "(", "255", ") ");
             }
             else if (tokenType == "short" || tokenType == "Int16" || tokenType == "System.Int16")
             {
@@ -51,7 +51,7 @@ namespace Urderground.ORM.Core.Translator
             }
             else if (tokenType == "ushort" || tokenType == "UInt16" || tokenType == "System.UInt16")
             {
-                return new MySqlSyntaxList("SMALLINT ", "UNSIGNED ");
+                return new MySqlSyntax("SMALLINT ", "UNSIGNED ");
             }
             else if (tokenType == "int" || tokenType == "Int32" || tokenType == "System.Int32")
             {
@@ -59,7 +59,7 @@ namespace Urderground.ORM.Core.Translator
             }
             else if (tokenType == "uint" || tokenType == "UInt32" || tokenType == "System.UInt32")
             {
-                return new MySqlSyntaxList("INT ", "UNSIGNED");
+                return new MySqlSyntax("INT ", "UNSIGNED");
             }
             else if (tokenType == "long" || tokenType == "Int64" || tokenType == "System.Int64")
             {
@@ -67,7 +67,7 @@ namespace Urderground.ORM.Core.Translator
             }
             else if (tokenType == "ulong" || tokenType == "UInt64" || tokenType == "System.UInt64")
             {
-                return new MySqlSyntaxList("BIGINT ", "UNSIGNED");
+                return new MySqlSyntax("BIGINT ", "UNSIGNED");
             }
             else if (tokenType == "decimal" || tokenType == "Decimal" || tokenType == "System.Decimal")
             {

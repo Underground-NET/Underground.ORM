@@ -1,6 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Urderground.ORM.Core.Translator.List;
+using Urderground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -8,11 +8,11 @@ namespace Urderground.ORM.Core.Translator
     {
         private void TranslateDeclareStatement(string csFileContent,
                                                List<SyntaxNodeOrToken> descendants,
-                                               MySqlSyntaxList mysqlSyntaxOut)
+                                               MySqlSyntax mysqlSyntaxOut)
         {
-            Dictionary<int, MySqlSyntaxList> mysqlDeclare = new();
-            (int Order, MySqlSyntaxList)? mysqlExpression = null;
-            (int Order, MySqlSyntaxList) mysqlDbType;
+            Dictionary<int, MySqlSyntax> mysqlDeclare = new();
+            (int Order, MySqlSyntax)? mysqlExpression = null;
+            (int Order, MySqlSyntax) mysqlDbType;
 
             int variablesCount = 0;
             bool defaultValue = false;
@@ -22,7 +22,7 @@ namespace Urderground.ORM.Core.Translator
             var predefinedTypeSyntax = descendants.Select(x => x.AsNode()).OfType<PredefinedTypeSyntax>().FirstOrDefault();
             var predefinedType = descendants.Select(x => x.AsNode()).OfType<VariableDeclarationSyntax>().FirstOrDefault();
 
-            MySqlSyntaxList dbType;
+            MySqlSyntax dbType;
             if (predefinedTypeSyntax != null)
             {
                 string contentDeclaration = csFileContent[predefinedTypeSyntax.Span.Start..predefinedTypeSyntax.Span.End];
@@ -91,7 +91,8 @@ namespace Urderground.ORM.Core.Translator
                     var descendantExpression = expressionSyntax.DescendantNodesAndTokensAndSelf().ToList();
 
                     var expTranslated = TranslateExpressionStatement(csFileContent,
-                                                                     descendantExpression);
+                                                                     descendantExpression,
+                                                                     mysqlSyntaxOut);
 
                     FinalizeDeclarationStatementMySql(mysqlDeclare,
                                                      (5, expTranslated),
@@ -108,14 +109,14 @@ namespace Urderground.ORM.Core.Translator
                                               mysqlSyntaxOut);
         }
 
-        private void FinalizeDeclarationStatementMySql(Dictionary<int, MySqlSyntaxList> mysqlDeclare,
-                                                      (int Order, MySqlSyntaxList)? mysqlExpression,
-                                                      (int Order, MySqlSyntaxList) mysqlDbType,
-                                                      MySqlSyntaxList mysqlSyntaxOut)
+        private void FinalizeDeclarationStatementMySql(Dictionary<int, MySqlSyntax> mysqlDeclare,
+                                                      (int Order, MySqlSyntax)? mysqlExpression,
+                                                      (int Order, MySqlSyntax) mysqlDbType,
+                                                      MySqlSyntax mysqlSyntaxOut)
         {
             if (!mysqlDeclare.Any()) return;
 
-            mysqlDeclare.Add(mysqlDbType.Order, (MySqlSyntaxList)mysqlDbType.Item2.Clone());
+            mysqlDeclare.Add(mysqlDbType.Order, (MySqlSyntax)mysqlDbType.Item2.Clone());
 
             if (mysqlExpression != null)
             {

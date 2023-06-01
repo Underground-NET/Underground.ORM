@@ -1,6 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Urderground.ORM.Core.Translator.List;
+using Urderground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -8,7 +8,7 @@ namespace Urderground.ORM.Core.Translator
     {
         private void TranslateIfElseStatement(string csFileContent,
                                               List<SyntaxNodeOrToken> descendants,
-                                              MySqlSyntaxList mysqlSyntaxOut)
+                                              MySqlSyntax mysqlSyntaxOut)
         {
             foreach (var item in descendants)
             {
@@ -26,7 +26,9 @@ namespace Urderground.ORM.Core.Translator
 
                     var condition = ifStatementSyntax.Condition;
                     var conditionDescendants = condition.DescendantNodesAndTokensAndSelf().ToList();
-                    var conditionTranslated = TranslateExpressionStatement(csFileContent, conditionDescendants);
+                    var conditionTranslated = TranslateExpressionStatement(csFileContent, 
+                                                                           conditionDescendants,
+                                                                           mysqlSyntaxOut);
 
                     mysqlSyntaxOut.AppendRange(conditionTranslated);
                     mysqlSyntaxOut.AppendLine(")", "THEN");

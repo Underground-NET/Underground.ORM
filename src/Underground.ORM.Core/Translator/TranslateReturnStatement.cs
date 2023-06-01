@@ -1,16 +1,16 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Urderground.ORM.Core.Translator.List;
+using Urderground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core.Translator
 {
     public partial class MySqlTranslator
     {
-        private MySqlSyntaxList TranslateReturnStatement(string csFileContent,
-                                                         List<SyntaxNodeOrToken> descendants,
-                                                         MySqlSyntaxList mysqlSyntaxOut)
+        private MySqlSyntax TranslateReturnStatement(string csFileContent,
+                                                     List<SyntaxNodeOrToken> descendants,
+                                                     MySqlSyntax mysqlSyntaxOut)
         {
-            MySqlSyntaxList mysqlStatement = new();
+            MySqlSyntax mysqlStatement = new();
 
             foreach (var item in descendants)
             {
@@ -30,7 +30,9 @@ namespace Urderground.ORM.Core.Translator
                 {
                     var descendantExpression = expressionSyntax.DescendantNodesAndTokensAndSelf().ToList();
 
-                    var expTranslated = TranslateExpressionStatement(csFileContent, descendantExpression);
+                    var expTranslated = TranslateExpressionStatement(csFileContent, 
+                                                                     descendantExpression,
+                                                                     mysqlSyntaxOut);
 
                     mysqlStatement.AppendRange(expTranslated);
 

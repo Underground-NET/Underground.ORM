@@ -1,4 +1,4 @@
-﻿namespace Urderground.ORM.Core.Translator.List
+﻿namespace Urderground.ORM.Core.Translator.Syntax
 {
     public class MySqlSyntaxItem : ICloneable
     {
@@ -20,10 +20,10 @@
 
         public object Clone()
         {
-            return this.MemberwiseClone();
+            return MemberwiseClone();
         }
 
-        public MySqlSyntaxItem(string token) : 
+        public MySqlSyntaxItem(string token) :
             this(token, false)
         {
         }
@@ -31,10 +31,6 @@
         public MySqlSyntaxItem(string token, bool newline)
         {
             if (token.Length > 0 && token[^1] == ' ') RightSpace = true;
-
-            // TODO: Remover espaços do lado direito no final da linha
-
-
 
             Token = token.TrimEnd();
             EndLine = newline;

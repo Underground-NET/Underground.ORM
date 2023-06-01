@@ -1,17 +1,18 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Urderground.ORM.Core.Translator.CastExpression;
-using Urderground.ORM.Core.Translator.List;
+using Urderground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core.Translator
 {
     public partial class MySqlTranslator
     {
-        private MySqlSyntaxList TranslateExpressionStatement(string csFileContent,
-                                                             List<SyntaxNodeOrToken> descendants)
+        private MySqlSyntax TranslateExpressionStatement(string csFileContent,
+                                                         List<SyntaxNodeOrToken> descendants,
+                                                         MySqlSyntax mysqlSyntaxOut)
         {
             int closeParentheses = 0;
-            MySqlSyntaxList mysqlExpression = new();
+            MySqlSyntax mysqlExpression = new();
 
             int currentLevel = 0;
             List<ElevatorCastExpression> elevatorCast = new();
@@ -140,9 +141,9 @@ namespace Urderground.ORM.Core.Translator
             return mysqlExpression;
         }
 
-        private MySqlSyntaxList BuildRightCastFunction(ElevatorCastExpression lastElevator)
+        private MySqlSyntax BuildRightCastFunction(ElevatorCastExpression lastElevator)
         {
-            MySqlSyntaxList castFunction = ")";
+            MySqlSyntax castFunction = ")";
 
             if (lastElevator.Alias != null)
             {
@@ -153,7 +154,7 @@ namespace Urderground.ORM.Core.Translator
             return castFunction;
         }
 
-        private (MySqlSyntaxItem Function, MySqlSyntaxList? Alias)
+        private (MySqlSyntaxItem Function, MySqlSyntax? Alias)
             GetMysqlCastFunctionFromToken(string castType, string contentDeclaration)
         {
             if (castType == "ulong")

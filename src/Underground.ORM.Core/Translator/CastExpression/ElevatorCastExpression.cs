@@ -1,5 +1,5 @@
 ﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Urderground.ORM.Core.Translator.List;
+using Urderground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core.Translator.CastExpression
 {
@@ -7,7 +7,7 @@ namespace Urderground.ORM.Core.Translator.CastExpression
     {
         public MySqlSyntaxItem Function { get; set; }
 
-        public MySqlSyntaxList? Alias { get; set; }
+        public MySqlSyntax? Alias { get; set; }
 
         public int Level { get; set; }
 

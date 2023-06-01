@@ -1,15 +1,15 @@
 ﻿using System.Collections;
 using Urderground.ORM.Core.Translator.Pretty;
 
-namespace Urderground.ORM.Core.Translator.List
+namespace Urderground.ORM.Core.Translator.Syntax
 {
-    public class MySqlSyntaxList : IList<MySqlSyntaxItem>, ICloneable
+    public class MySqlSyntax : IList<MySqlSyntaxItem>, ICloneable
     {
         readonly MySqlPretty _pretty = new();
 
         private readonly bool _isReadOnly;
 
-        private List<MySqlSyntaxItem> _list = new ();
+        private List<MySqlSyntaxItem> _list = new();
         private int _syntaxLineNumbers = 0;
 
         public int SyntaxLineNumbers => _syntaxLineNumbers;
@@ -26,19 +26,19 @@ namespace Urderground.ORM.Core.Translator.List
 
         public override string ToString()
         {
-            return string.Join("", _list.Select(x => x.Token + $"{(x.EndLine || x.RightSpace ? " ": "")}"));
+            return string.Join("", _list.Select(x => x.Token + $"{(x.EndLine || x.RightSpace ? " " : "")}"));
         }
 
-        public MySqlSyntaxList() : this(50)
+        public MySqlSyntax() : this(50)
         {
         }
 
-        public MySqlSyntaxList(int capacity)
+        public MySqlSyntax(int capacity)
         {
             _list = new(capacity);
         }
 
-        public MySqlSyntaxList(params string[] items)
+        public MySqlSyntax(params string[] items)
         {
             Append(items);
         }
@@ -50,7 +50,7 @@ namespace Urderground.ORM.Core.Translator.List
             return string.Join("", _list.Select((item, i) =>
             {
                 var prevItem = i == 0 ? null : _list[i - 1];
-                var nextItem = i == _list.Count -1 ? null : _list[i + 1];
+                var nextItem = i == _list.Count - 1 ? null : _list[i + 1];
 
                 string token = item.Token;
 
@@ -124,13 +124,13 @@ namespace Urderground.ORM.Core.Translator.List
             if (item.EndLine) Interlocked.Increment(ref _syntaxLineNumbers);
         }
 
-        public void AppendRange(MySqlSyntaxList list)
+        public void AppendRange(MySqlSyntax list)
         {
             foreach (var item in list)
                 InternalAdd(item);
         }
 
-        public void AppendRange(IEnumerable<MySqlSyntaxList> lists)
+        public void AppendRange(IEnumerable<MySqlSyntax> lists)
         {
             foreach (var item in lists.SelectMany(x => x))
                 InternalAdd(item);
@@ -139,6 +139,7 @@ namespace Urderground.ORM.Core.Translator.List
         public void Clear()
         {
             _list.Clear();
+            _syntaxLineNumbers = 0;
         }
 
         public bool Contains(MySqlSyntaxItem item)
@@ -189,17 +190,17 @@ namespace Urderground.ORM.Core.Translator.List
 
         public object Clone()
         {
-            MySqlSyntaxList listClone = (MySqlSyntaxList)MemberwiseClone();
+            MySqlSyntax listClone = (MySqlSyntax)MemberwiseClone();
             listClone._list = _list.Select(x => (MySqlSyntaxItem)x.Clone()).ToList();
             return listClone;
         }
 
-        public static implicit operator MySqlSyntaxList(MySqlSyntaxItem item)
+        public static implicit operator MySqlSyntax(MySqlSyntaxItem item)
         {
-            return new MySqlSyntaxList() { item };
+            return new MySqlSyntax() { item };
         }
 
-        public static implicit operator MySqlSyntaxList(string token)
+        public static implicit operator MySqlSyntax(string token)
         {
             return new(token);
         }
