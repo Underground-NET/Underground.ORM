@@ -1,12 +1,15 @@
 ﻿using System.Collections;
+using Urderground.ORM.Core.Translator.Pretty;
 
 namespace Urderground.ORM.Core.Translator.List
 {
-    public class MySqlSyntaxList : IList<MySqlSyntaxItem>
+    public class MySqlSyntaxList : IList<MySqlSyntaxItem>, ICloneable
     {
+        readonly MySqlPretty _pretty = new();
+
         private readonly bool _isReadOnly;
 
-        private readonly List<MySqlSyntaxItem> _list;
+        private List<MySqlSyntaxItem> _list = new ();
         private int _syntaxLineNumbers = 0;
 
         public int SyntaxLineNumbers => _syntaxLineNumbers;
@@ -21,6 +24,11 @@ namespace Urderground.ORM.Core.Translator.List
 
         public bool IsReadOnly => _isReadOnly;
 
+        public override string ToString()
+        {
+            return string.Join("", _list.Select(x => x.Token + $"{(x.EndLine || x.RightSpace ? " ": "")}"));
+        }
+
         public MySqlSyntaxList() : this(50)
         {
         }
@@ -28,6 +36,48 @@ namespace Urderground.ORM.Core.Translator.List
         public MySqlSyntaxList(int capacity)
         {
             _list = new(capacity);
+        }
+
+        public MySqlSyntaxList(params string[] items)
+        {
+            Append(items);
+        }
+
+        public string ToMySqlString(bool pretty)
+        {
+            int leftSpacesCount = 0;
+
+            return string.Join("", _list.Select((item, i) =>
+            {
+                var prevItem = i == 0 ? null : _list[i - 1];
+                var nextItem = i == _list.Count -1 ? null : _list[i + 1];
+
+                string token = item.Token;
+
+                if (pretty)
+                {
+                    var addTabBeforeReturn = _pretty.AddTabBeforeReturn.FirstOrDefault(x => x == token);
+                    var addTabAfterReturn = _pretty.AddTabAfterReturn.FirstOrDefault(x => x == token);
+                    var remTabBeforeReturn = _pretty.RemTabBeforeReturn.FirstOrDefault(x => x == token);
+                    var remTabAfterReturn = _pretty.RemTabAfterReturn.FirstOrDefault(x => x == token);
+
+                    if (addTabBeforeReturn != null) leftSpacesCount += 4;
+                    if (remTabBeforeReturn != null) leftSpacesCount -= 4;
+
+                    if (item.StartLine)
+                    {
+                        token = token.Insert(0, string.Concat(Enumerable.Repeat(' ', leftSpacesCount)));
+                    }
+
+                    if (addTabAfterReturn != null) leftSpacesCount += 4;
+                    if (remTabAfterReturn != null) leftSpacesCount -= 4;
+                }
+
+                if (item.RightSpace && (nextItem?.Token ?? "") != ";") token += " ";
+                if (item.EndLine) token += "\n";
+
+                return token;
+            }));
         }
 
         public void Add(MySqlSyntaxItem item)
@@ -67,9 +117,11 @@ namespace Urderground.ORM.Core.Translator.List
         private void InternalAdd(MySqlSyntaxItem item)
         {
             item.SetLineNumber(_syntaxLineNumbers + 1);
+            item.SetStartLine(_list.Count == 0 || _list[^1].EndLine);
+
             _list.Add(item);
 
-            if (item.NewLine) Interlocked.Increment(ref _syntaxLineNumbers);
+            if (item.EndLine) Interlocked.Increment(ref _syntaxLineNumbers);
         }
 
         public void AppendRange(MySqlSyntaxList list)
@@ -127,6 +179,29 @@ namespace Urderground.ORM.Core.Translator.List
         IEnumerator IEnumerable.GetEnumerator()
         {
             return _list.GetEnumerator();
+        }
+
+        public void RemoveLast()
+        {
+            _list.RemoveAt(_list.Count - 1);
+            _syntaxLineNumbers = _list[^1].LineNumber;
+        }
+
+        public object Clone()
+        {
+            MySqlSyntaxList listClone = (MySqlSyntaxList)MemberwiseClone();
+            listClone._list = _list.Select(x => (MySqlSyntaxItem)x.Clone()).ToList();
+            return listClone;
+        }
+
+        public static implicit operator MySqlSyntaxList(MySqlSyntaxItem item)
+        {
+            return new MySqlSyntaxList() { item };
+        }
+
+        public static implicit operator MySqlSyntaxList(string token)
+        {
+            return new(token);
         }
     }
 }

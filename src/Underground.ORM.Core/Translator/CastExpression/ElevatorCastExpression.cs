@@ -1,12 +1,13 @@
 ﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Urderground.ORM.Core.Translator.List;
 
 namespace Urderground.ORM.Core.Translator.CastExpression
 {
     public class ElevatorCastExpression
     {
-        public string Function { get; set; }
+        public MySqlSyntaxItem Function { get; set; }
 
-        public string? Alias { get; set; }
+        public MySqlSyntaxList? Alias { get; set; }
 
         public int Level { get; set; }
 

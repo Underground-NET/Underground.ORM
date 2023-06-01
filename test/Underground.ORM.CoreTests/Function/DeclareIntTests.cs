@@ -32,6 +32,10 @@ namespace Urderground.ORM.CoreTests.Function
         [MySqlFunctionScope(nameof(FuncaoDeclareIntTest))]
         private int FuncaoDeclareIntTest(int idade, int dias)
         {
+            int var63 = (int)1 + ((int)2 - ((int)3 + 5) - (int)3);
+            int var67 = (int)(((1 + (2) + ((3))))) - ((int)((2)));
+
+
             // Simples
             int var1;
             int? var2 = null;
