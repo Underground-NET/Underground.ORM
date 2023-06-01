@@ -149,6 +149,14 @@ namespace Urderground.ORM.Core.Translator
             {
                 return ("CAST", new("SIGNED ", "INT"));
             }
+            else if (castType == "short")
+            {
+                return ("CAST", new("SIGNED"));
+            }
+            else if (castType == "ushort")
+            {
+                return ("CAST", new("UNSIGNED"));
+            }
             else if (castType == "char")
             {
                 return ("CHAR", null);

@@ -132,6 +132,10 @@ namespace Urderground.ORM.Core.Translator
             {
                 dbType = "SMALLINT";
             }
+            else if (returnType == typeof(ushort))
+            {
+                dbType = "SMALLINT UNSIGNED";
+            }
             else if (returnType == typeof(int))
             {
                 dbType = "INT";
