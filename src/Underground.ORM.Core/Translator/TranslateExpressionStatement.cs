@@ -11,7 +11,6 @@ namespace Urderground.ORM.Core.Translator
                                                          List<SyntaxNodeOrToken> descendants,
                                                          MySqlSyntax mysqlSyntaxOut)
         {
-            int closeParentheses = 0;
             MySqlSyntax mysqlExpression = new();
 
             int currentLevel = 0;
@@ -47,7 +46,7 @@ namespace Urderground.ORM.Core.Translator
                         {
                             var predefinedType = castExpressionSyntax.Type as PredefinedTypeSyntax;
 
-                            var (Function, Alias) = GetMysqlCastFunctionFromToken(predefinedType!.Keyword.ValueText, contentExpression);
+                            var (Function, Alias) = BuildLeftCastFunctionFromToken(predefinedType!.Keyword.ValueText, contentExpression);
 
                             elevatorCast.Add(new ElevatorCastExpression()
                             {
@@ -63,16 +62,7 @@ namespace Urderground.ORM.Core.Translator
                     }
                     else if (binaryExpressionSyntax != null)
                     {
-                        #region Close parenthese with mysql cast conversion
-
-                        ElevatorCastExpression lastElevator;
-                        if (elevatorCast.Any() && currentLevel == (lastElevator = elevatorCast.Last()).Level)
-                        {
-                            mysqlExpression.AppendRange(BuildRightCastFunction(lastElevator));
-                            mysqlExpression.Append(")");
-                            elevatorCast.Remove(lastElevator);
-                        }
-                        #endregion
+                        CloseParenthesesFromCastfunctions(currentLevel, elevatorCast, mysqlExpression);
 
                         string operatorToken = binaryExpressionSyntax.OperatorToken.ValueText;
 
@@ -93,16 +83,9 @@ namespace Urderground.ORM.Core.Translator
                         }
                         else if (parentheseToken == ")")
                         {
-                            currentLevel--;
+                            CloseParenthesesFromCastfunctions(currentLevel, elevatorCast, mysqlExpression);
 
-                            if (item == descendants.Last())
-                            {
-                                if (elevatorCast.Count > 0)
-                                {
-                                    closeParentheses++;
-                                    continue;
-                                }
-                            }
+                            currentLevel--;
                         }
 
                         mysqlExpression.Append(parentheseToken);
@@ -113,6 +96,8 @@ namespace Urderground.ORM.Core.Translator
                         {
                             continue;
                         }
+
+                        mysqlExpression.Append($"Else Token: {token.Text}");
 
                         // Tokens não tratados podem ser adicionados à expressão
                         mysqlExpression.Append(token.Text);
@@ -128,34 +113,25 @@ namespace Urderground.ORM.Core.Translator
             });
             #endregion
 
-            while (closeParentheses-- > 0)
-            {
-                mysqlExpression.Append(")");
-            }
-
-            //if (elevatorCast.Count > 0)
-            //{
-            //    mysqlExpression.Append(")");
-            //}
-
             return mysqlExpression;
         }
 
-        private MySqlSyntax BuildRightCastFunction(ElevatorCastExpression lastElevator)
+        private void CloseParenthesesFromCastfunctions(int currentLevel,
+                                      List<ElevatorCastExpression> elevatorCast,
+                                      MySqlSyntax mysqlExpression
+                                      )
         {
-            MySqlSyntax castFunction = ")";
-
-            if (lastElevator.Alias != null)
+            ElevatorCastExpression lastElevator;
+            if (elevatorCast.Any() && currentLevel == (lastElevator = elevatorCast.Last()).Level)
             {
-                castFunction = " AS ";
-                castFunction.AppendRange(lastElevator.Alias);
+                mysqlExpression.AppendRange(BuildRightCastFunction(lastElevator));
+                mysqlExpression.Append(")");
+                elevatorCast.Remove(lastElevator);
             }
-
-            return castFunction;
         }
 
         private (MySqlSyntaxItem Function, MySqlSyntax? Alias)
-            GetMysqlCastFunctionFromToken(string castType, string contentDeclaration)
+            BuildLeftCastFunctionFromToken(string castType, string contentDeclaration)
         {
             if (castType == "ulong")
             {
@@ -179,6 +155,19 @@ namespace Urderground.ORM.Core.Translator
             }
             else
                 throw new NotImplementedException($"Tipo de conversão '{castType}' de '{contentDeclaration}' não suportada");
+        }
+
+        private MySqlSyntax BuildRightCastFunction(ElevatorCastExpression lastElevator)
+        {
+            MySqlSyntax castFunction = ")";
+
+            if (lastElevator.Alias != null)
+            {
+                castFunction = " AS ";
+                castFunction.AppendRange(lastElevator.Alias);
+            }
+
+            return castFunction;
         }
     }
 }
