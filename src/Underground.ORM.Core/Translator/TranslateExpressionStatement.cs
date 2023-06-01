@@ -135,11 +135,11 @@ namespace Urderground.ORM.Core.Translator
         {
             if (castType == "ulong")
             {
-                return ("CAST", new("UNSIGNED ", "BIGINT"));
+                return ("CAST", new("UNSIGNED"));
             }
             else if (castType == "long")
             {
-                return ("CAST", new("SIGNED ", "BIGINT"));
+                return ("CAST", new("SIGNED"));
             }
             else if (castType == "uint")
             {

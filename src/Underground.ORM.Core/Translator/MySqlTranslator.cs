@@ -136,9 +136,17 @@ namespace Urderground.ORM.Core.Translator
             {
                 dbType = "INT";
             }
+            else if (returnType == typeof(uint))
+            {
+                dbType = "INT UNSIGNED";
+            }
             else if (returnType == typeof(long))
             {
                 dbType = "BIGINT";
+            }
+            else if (returnType == typeof(ulong))
+            {
+                dbType = "BIGINT UNSIGNED";
             }
             else if (returnType == typeof(decimal))
             {

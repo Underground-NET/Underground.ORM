@@ -59,7 +59,7 @@ namespace Urderground.ORM.Core.Translator
             }
             else if (tokenType == "uint" || tokenType == "UInt32" || tokenType == "System.UInt32")
             {
-                return new MySqlSyntax("INT ", "UNSIGNED");
+                return new MySqlSyntax("INT ", "UNSIGNED ");
             }
             else if (tokenType == "long" || tokenType == "Int64" || tokenType == "System.Int64")
             {
@@ -67,7 +67,7 @@ namespace Urderground.ORM.Core.Translator
             }
             else if (tokenType == "ulong" || tokenType == "UInt64" || tokenType == "System.UInt64")
             {
-                return new MySqlSyntax("BIGINT ", "UNSIGNED");
+                return new MySqlSyntax("BIGINT ", "UNSIGNED ");
             }
             else if (tokenType == "decimal" || tokenType == "Decimal" || tokenType == "System.Decimal")
             {
