@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Title>Underground.ORM</Title>
+    <Description>Underground.ORM engine (Object Relational Mapper) focused on high performance calls on the client side and on the server side taking full advantage of the MySql database efficiency.</Description>
+    <Copyright>© Underground.NET &amp; Underground.ORM</Copyright>
+    <PackageProjectUrl>https://github.com/Underground-NET/Underground.ORM</PackageProjectUrl>
+    <PackageIcon>logo.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>orm;underground;underground.net;underground.orm;underground.orm.core;mysql;csharp;c#</PackageTags>
+    <Company>Underground.NET</Company>
+    <PackageReleaseNotes>Release of the first version for testing. Currently this package is limited to performing syntax conversions of variable declarations from csharp to mysql 8 with int, uint, long, ulong as can be seen in the unit tests of the package.</PackageReleaseNotes>
+    <Version>0.0.0-preview</Version>
+    <Authors>Underground.NET, grilo88</Authors>
+    <PackageId>Underground.ORM</PackageId>
+    <RepositoryUrl>https://github.com/Underground-NET/Underground.ORM</RepositoryUrl>
+    <AssemblyVersion>0.0.0</AssemblyVersion>
+    <FileVersion>0.0.0</FileVersion>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <IncludeSymbols>False</IncludeSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\doc\logo.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.6.0" />
+    <PackageReference Include="MySqlConnector" Version="2.2.6" />
+  </ItemGroup>
+
+</Project>

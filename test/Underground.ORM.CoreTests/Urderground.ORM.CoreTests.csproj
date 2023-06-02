@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Underground.ORM.Core\Urderground.ORM.Core.csproj" />
+    <ProjectReference Include="..\..\src\Underground.ORM.Core\Underground.ORM.Core.csproj" />
   </ItemGroup>
 
 </Project>
