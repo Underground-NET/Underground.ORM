@@ -1,4 +1,4 @@
-﻿namespace Urderground.ORM.Core.Translator.Syntax
+﻿namespace Underground.ORM.Core.Translator.Syntax
 {
     public class MySqlSyntaxItem : ICloneable
     {

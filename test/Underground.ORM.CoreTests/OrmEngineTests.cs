@@ -1,6 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MySqlConnector;
-using Urderground.ORM.Core;
+using Underground.ORM.Core;
 
 namespace Urderground.ORM.CoreTests
 {

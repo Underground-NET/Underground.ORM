@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace Urderground.ORM.Core.Attributes
+namespace Underground.ORM.Core.Attributes
 {
     public class MySqlProcedureScopeAttribute : Attribute
     {

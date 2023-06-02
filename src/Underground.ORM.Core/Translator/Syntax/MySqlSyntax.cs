@@ -1,7 +1,7 @@
 ﻿using System.Collections;
-using Urderground.ORM.Core.Translator.Pretty;
+using Underground.ORM.Core.Translator.Pretty;
 
-namespace Urderground.ORM.Core.Translator.Syntax
+namespace Underground.ORM.Core.Translator.Syntax
 {
     public class MySqlSyntax : IList<MySqlSyntaxItem>, ICloneable
     {

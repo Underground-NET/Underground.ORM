@@ -1,4 +1,4 @@
-﻿namespace Urderground.ORM.Core.Entity
+﻿namespace Underground.ORM.Core.Entity
 {
     public abstract class OrmBaseEntity
     {

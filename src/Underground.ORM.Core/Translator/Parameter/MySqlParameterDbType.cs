@@ -1,4 +1,4 @@
-﻿namespace Urderground.ORM.Core.Translator.Parameter
+﻿namespace Underground.ORM.Core.Translator.Parameter
 {
     internal class MySqlParameterDbType
     {
