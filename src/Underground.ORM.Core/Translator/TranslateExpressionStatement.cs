@@ -18,6 +18,7 @@ namespace Urderground.ORM.Core.Translator
 
             foreach (var item in descendants)
             {
+                var currentElevatorCast = elevatorCast!.FirstOrDefault(x => x.Level == currentLevel);
                 string contentExpression = csFileContent[item.Span.Start..item.Span.End];
 
                 var node = item.AsNode();
@@ -26,14 +27,21 @@ namespace Urderground.ORM.Core.Translator
                 if (token.Parent != null)
                 {
                     var identifierNameSyntax = token.Parent as IdentifierNameSyntax;
+                    var qualifiedNameSyntax = token.Parent as QualifiedNameSyntax;
                     var literalExpressionSyntax = token.Parent as LiteralExpressionSyntax;
                     var castExpressionSyntax = token.Parent as CastExpressionSyntax;
                     var binaryExpressionSyntax = token.Parent as BinaryExpressionSyntax;
                     var parenthesizedExpressionSyntax = token.Parent as ParenthesizedExpressionSyntax;
                     var predefinedTypeSyntax = token.Parent as PredefinedTypeSyntax;
 
-                    if (identifierNameSyntax != null)
+                    if (qualifiedNameSyntax != null)
                     {
+                        if (currentElevatorCast != null) continue;
+                    }
+                    else if (identifierNameSyntax != null)
+                    {
+                        if (currentElevatorCast != null) continue;
+
                         mysqlExpression.Append($"`{token.ValueText}`");
                     }
                     else if (literalExpressionSyntax != null)
@@ -42,11 +50,25 @@ namespace Urderground.ORM.Core.Translator
                     }
                     else if (castExpressionSyntax != null)
                     {
-                        if (token.ValueText == ")")
+                        if (token.ValueText == "(")
                         {
                             var predefinedType = castExpressionSyntax.Type as PredefinedTypeSyntax;
+                            var identifierNameSyntaxCastExpression = castExpressionSyntax.Type as IdentifierNameSyntax;
+                            var qualifiedNameSyntaxCastExpression = castExpressionSyntax.Type as QualifiedNameSyntax;
 
-                            var (Function, Alias) = BuildLeftCastFunctionFromToken(predefinedType!.Keyword.ValueText, contentExpression);
+                            string variableTypeName;
+                            if (qualifiedNameSyntaxCastExpression != null)
+                            {
+                                variableTypeName = csFileContent[qualifiedNameSyntaxCastExpression!.Span.Start..qualifiedNameSyntaxCastExpression.Span.End];
+                            }
+                            else if (identifierNameSyntaxCastExpression != null)
+                            {
+                                variableTypeName = csFileContent[identifierNameSyntaxCastExpression!.Span.Start..identifierNameSyntaxCastExpression.Span.End];
+                            }
+                            else
+                                variableTypeName = predefinedType!.Keyword.ValueText;
+
+                            var (Function, Alias) = BuildLeftCastFunctionFromToken(variableTypeName, contentExpression);
 
                             elevatorCast.Add(new ElevatorCastExpression()
                             {
@@ -62,7 +84,7 @@ namespace Urderground.ORM.Core.Translator
                     }
                     else if (binaryExpressionSyntax != null)
                     {
-                        CloseParenthesesFromCastfunctions(currentLevel, elevatorCast, mysqlExpression);
+                        CloseParenthesesFromCastFunctions(currentLevel, elevatorCast, mysqlExpression);
 
                         string operatorToken = binaryExpressionSyntax.OperatorToken.ValueText;
 
@@ -83,7 +105,7 @@ namespace Urderground.ORM.Core.Translator
                         }
                         else if (parentheseToken == ")")
                         {
-                            CloseParenthesesFromCastfunctions(currentLevel, elevatorCast, mysqlExpression);
+                            CloseParenthesesFromCastFunctions(currentLevel, elevatorCast, mysqlExpression);
 
                             currentLevel--;
                         }
@@ -96,8 +118,6 @@ namespace Urderground.ORM.Core.Translator
                         {
                             continue;
                         }
-
-                        mysqlExpression.Append($"Else Token: {token.Text}");
 
                         // Tokens não tratados podem ser adicionados à expressão
                         mysqlExpression.Append(token.Text);
@@ -116,10 +136,9 @@ namespace Urderground.ORM.Core.Translator
             return mysqlExpression;
         }
 
-        private void CloseParenthesesFromCastfunctions(int currentLevel,
-                                      List<ElevatorCastExpression> elevatorCast,
-                                      MySqlSyntax mysqlExpression
-                                      )
+        private void CloseParenthesesFromCastFunctions(int currentLevel,
+                                                       List<ElevatorCastExpression> elevatorCast,
+                                                       MySqlSyntax mysqlExpression)
         {
             ElevatorCastExpression lastElevator;
             if (elevatorCast.Any() && currentLevel == (lastElevator = elevatorCast.Last()).Level)
@@ -141,13 +160,19 @@ namespace Urderground.ORM.Core.Translator
             {
                 return ("CAST", new("SIGNED"));
             }
-            else if (castType == "uint")
-            {
-                return ("CAST", new("UNSIGNED ", "INT"));
-            }
-            else if (castType == "int")
+            else if (
+                castType == "int" ||
+                castType == "Int32" ||
+                castType == "System.Int32")
             {
                 return ("CAST", new("SIGNED ", "INT"));
+            }
+            else if (
+                castType == "uint" ||
+                castType == "UInt32" ||
+                castType == "System.UInt32")
+            {
+                return ("CAST", new("UNSIGNED ", "INT"));
             }
             else if (castType == "short")
             {
@@ -162,7 +187,7 @@ namespace Urderground.ORM.Core.Translator
                 return ("CHAR", null);
             }
             else
-                throw new NotImplementedException($"Tipo de conversão '{castType}' de '{contentDeclaration}' não suportada");
+                throw new NotImplementedException($"Cast type '{castType}' of '{contentDeclaration}' not supported");
         }
 
         private MySqlSyntax BuildRightCastFunction(ElevatorCastExpression lastElevator)

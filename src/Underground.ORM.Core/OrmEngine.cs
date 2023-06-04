@@ -181,9 +181,9 @@ namespace Underground.ORM.Core
 
 
         private async Task<TReturn?> RunFunctionAsync<TReturn>(object function,
-                                                              MethodInfo method,
-                                                              object?[] values,
-                                                              CancellationToken ct)
+                                                               MethodInfo method,
+                                                               object?[] values,
+                                                               CancellationToken ct)
         {
             var functionAttribute = method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
 
@@ -203,7 +203,7 @@ namespace Underground.ORM.Core
                 return (TReturn?)await command.ExecuteScalarAsync(ct);
             }
 
-            throw new Exception($"Atributo de escopo não definido para o método '{method.Name}'");
+            throw new Exception($"Scope attribute not set for method '{method.Name}'");
         }
 
         #endregion
@@ -244,9 +244,9 @@ namespace Underground.ORM.Core
         {
             MySqlTranslator translator = new();
 
-            var mysqlSyntax = translator.TranslateToFunctionCreateSyntax(method);
+            var mysqlSyntaxBuilt = translator.TranslateToFunctionCreateSyntax(method);
 
-            return mysqlSyntax;
+            return mysqlSyntaxBuilt;
         }
 
         #endregion
@@ -282,7 +282,7 @@ namespace Underground.ORM.Core
                 }
             }
 
-            throw new Exception($"Atributo de escopo não definido para o método '{mysqlSyntax.Method.Name}'");
+            throw new Exception($"Scope attribute not set for method '{mysqlSyntax.Method.Name}'");
         }
     }
 }

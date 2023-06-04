@@ -2,12 +2,12 @@
 using MySqlConnector;
 using Underground.ORM.Core;
 
-namespace Urderground.ORM.CoreTests
+namespace Underground.ORM.CoreTests
 {
     [TestClass()]
     public class OrmEngineTests
     {
-        public static Lazy<OrmEngine> OrmEngine = new (() =>
+        public static Lazy<OrmEngine> OrmEngine = new(() =>
         {
             MySqlConnectionStringBuilder sb = new();
 
