@@ -152,11 +152,16 @@ namespace Urderground.ORM.Core.Translator
         private (MySqlSyntaxItem Function, MySqlSyntax? Alias)
             BuildLeftCastFunctionFromToken(string castType, string contentDeclaration)
         {
-            if (castType == "ulong")
+            if (castType == "ulong" ||
+                castType == "UInt64" ||
+                castType == "System.UInt64")
             {
                 return ("CAST", new("UNSIGNED"));
             }
-            else if (castType == "long")
+            else if (
+                castType == "long" ||
+                castType == "Int64" ||
+                castType == "System.Int64")
             {
                 return ("CAST", new("SIGNED"));
             }
@@ -174,11 +179,17 @@ namespace Urderground.ORM.Core.Translator
             {
                 return ("CAST", new("UNSIGNED ", "INT"));
             }
-            else if (castType == "short")
+            else if (
+                castType == "short" ||
+                castType == "Int16" ||
+                castType == "System.Int16")
             {
                 return ("CAST", new("SIGNED"));
             }
-            else if (castType == "ushort")
+            else if (
+                castType == "ushort" ||
+                castType == "UInt16" ||
+                castType == "System.UInt16")
             {
                 return ("CAST", new("UNSIGNED"));
             }
