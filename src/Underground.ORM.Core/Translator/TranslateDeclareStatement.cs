@@ -1,6 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Urderground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -35,11 +35,16 @@ namespace Urderground.ORM.Core.Translator
 
                 var identifierNameSyntax = predefinedType.Type as IdentifierNameSyntax;
                 var nullableTypeSyntax = predefinedType.Type as NullableTypeSyntax;
+                var qualifiedNameSyntax = predefinedType.Type as QualifiedNameSyntax;
 
                 string variableTypeName = "";
 
                 if (nullableTypeSyntax != null)
                     variableTypeName = csFileContent[nullableTypeSyntax.Span.Start..nullableTypeSyntax.Span.End].TrimEnd('?');
+                else if (qualifiedNameSyntax != null)
+                {
+                    variableTypeName = csFileContent[qualifiedNameSyntax!.Span.Start..qualifiedNameSyntax.Span.End];
+                }
                 else
                     variableTypeName = csFileContent[identifierNameSyntax!.Span.Start..identifierNameSyntax.Span.End];
 

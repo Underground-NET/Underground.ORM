@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-namespace Urderground.ORM.Core.Translator.Syntax
+namespace Underground.ORM.Core.Translator.Syntax
 {
     public class MySqlSyntaxBuilt
     {

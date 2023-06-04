@@ -1,6 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Urderground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax;
 
 namespace Urderground.ORM.Core.Translator
 {

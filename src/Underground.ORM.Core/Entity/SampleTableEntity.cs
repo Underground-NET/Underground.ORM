@@ -1,4 +1,4 @@
-﻿namespace Urderground.ORM.Core.Entity
+﻿namespace Underground.ORM.Core.Entity
 {
     public class SampleTableEntity : OrmBaseEntity
     {
@@ -8,8 +8,8 @@
 
         public int Age { get; set; }
 
-        public SampleTableEntity(string name, 
-                                 DateTime birthday, 
+        public SampleTableEntity(string name,
+                                 DateTime birthday,
                                  int age)
         {
             Name = name;

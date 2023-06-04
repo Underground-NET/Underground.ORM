@@ -1,13 +1,13 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MySqlConnector;
-using Urderground.ORM.Core;
+using Underground.ORM.Core;
 
-namespace Urderground.ORM.CoreTests
+namespace Underground.ORM.CoreTests
 {
     [TestClass()]
     public class OrmEngineTests
     {
-        public static Lazy<OrmEngine> OrmEngine = new (() =>
+        public static Lazy<OrmEngine> OrmEngine = new(() =>
         {
             MySqlConnectionStringBuilder sb = new();
 

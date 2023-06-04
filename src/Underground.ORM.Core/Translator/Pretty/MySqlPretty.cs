@@ -1,4 +1,4 @@
-﻿namespace Urderground.ORM.Core.Translator.Pretty
+﻿namespace Underground.ORM.Core.Translator.Pretty
 {
     internal class MySqlPretty
     {
