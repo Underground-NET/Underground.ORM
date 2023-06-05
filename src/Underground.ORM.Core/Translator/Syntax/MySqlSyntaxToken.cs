@@ -1,6 +1,8 @@
-﻿namespace Underground.ORM.Core.Translator.Syntax
+﻿using System.Data;
+
+namespace Underground.ORM.Core.Translator.Syntax
 {
-    public class MySqlSyntaxItem : ICloneable
+    public class MySqlSyntaxToken : ICloneable
     {
         public string Token { get; private set; }
 
@@ -11,6 +13,10 @@
         public bool EndLine { get; private set; }
 
         public bool RightSpace { get; private set; }
+
+        public DbType? DbType { get; private set; } = null;
+
+        public bool IsVar { get; protected set; }
 
         public override string ToString() => $"Line: {LineNumber}, '{Token}'";
 
@@ -23,12 +29,20 @@
             return MemberwiseClone();
         }
 
-        public MySqlSyntaxItem(string token) :
-            this(token, false)
+        public MySqlSyntaxToken(string token, 
+                                DbType dbType) :
+            this(token, newline: false)
+        {
+            DbType = dbType;
+        }
+
+        public MySqlSyntaxToken(string token) :
+            this(token, newline: false)
         {
         }
 
-        public MySqlSyntaxItem(string token, bool newline)
+        public MySqlSyntaxToken(string token, 
+                                bool newline)
         {
             if (token.Length > 0 && token[^1] == ' ') RightSpace = true;
 
@@ -36,9 +50,9 @@
             EndLine = newline;
         }
 
-        public static implicit operator MySqlSyntaxItem(string token)
+        public static implicit operator MySqlSyntaxToken(string token)
         {
-            return new MySqlSyntaxItem(token);
+            return new MySqlSyntaxToken(token);
         }
     }
 }

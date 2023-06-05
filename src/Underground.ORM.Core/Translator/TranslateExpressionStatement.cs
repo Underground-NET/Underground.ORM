@@ -133,7 +133,18 @@ namespace Urderground.ORM.Core.Translator
             });
             #endregion
 
+            TranslatePlusOperatorToMySqlConcat(mysqlExpression, mysqlSyntaxOut);
+
             return mysqlExpression;
+        }
+
+        private void TranslatePlusOperatorToMySqlConcat(MySqlSyntax expression,
+                                                        MySqlSyntax mysqlSyntaxOut)
+        {
+            foreach (var token in expression)
+            {
+
+            }
         }
 
         private void CloseParenthesesFromCastFunctions(int currentLevel,
@@ -149,7 +160,7 @@ namespace Urderground.ORM.Core.Translator
             }
         }
 
-        private (MySqlSyntaxItem Function, MySqlSyntax? Alias)
+        private (MySqlSyntaxToken Function, MySqlSyntax? Alias)
             BuildLeftCastFunctionFromToken(string castType, string contentDeclaration)
         {
             if (castType == "ulong" ||

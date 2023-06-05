@@ -244,7 +244,7 @@ namespace Underground.ORM.Core
         {
             MySqlTranslator translator = new();
 
-            var mysqlSyntaxBuilt = translator.TranslateToFunctionCreateSyntax(method);
+            var mysqlSyntaxBuilt = translator.TranslateToFunctionCreateStatementSyntax(method);
 
             return mysqlSyntaxBuilt;
         }

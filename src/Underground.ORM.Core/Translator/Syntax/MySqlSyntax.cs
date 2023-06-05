@@ -3,18 +3,18 @@ using Underground.ORM.Core.Translator.Pretty;
 
 namespace Underground.ORM.Core.Translator.Syntax
 {
-    public class MySqlSyntax : IList<MySqlSyntaxItem>, ICloneable
+    public class MySqlSyntax : IList<MySqlSyntaxToken>, ICloneable
     {
         readonly MySqlPretty _pretty = new();
 
         private readonly bool _isReadOnly;
 
-        private List<MySqlSyntaxItem> _list = new();
+        private List<MySqlSyntaxToken> _list = new();
         private int _syntaxLineNumbers = 0;
 
         public int SyntaxLineNumbers => _syntaxLineNumbers;
 
-        public MySqlSyntaxItem this[int index]
+        public MySqlSyntaxToken this[int index]
         {
             get => _list[index];
             set => _list[index] = value;
@@ -41,6 +41,11 @@ namespace Underground.ORM.Core.Translator.Syntax
         public MySqlSyntax(params string[] items)
         {
             Append(items);
+        }
+
+        public MySqlSyntax(params MySqlSyntaxToken[] items)
+        {
+            AppendRange(items);
         }
 
         public string ToMySqlString(bool pretty)
@@ -80,12 +85,12 @@ namespace Underground.ORM.Core.Translator.Syntax
             }));
         }
 
-        public void Add(MySqlSyntaxItem item)
+        public void Add(MySqlSyntaxToken item)
         {
             InternalAdd(item);
         }
 
-        public void Append(MySqlSyntaxItem item)
+        public void Append(MySqlSyntaxToken item)
         {
             InternalAdd(item);
         }
@@ -110,11 +115,11 @@ namespace Underground.ORM.Core.Translator.Syntax
             for (int i = 0; i < tokens.Length; i++)
             {
                 bool lastItem = newLine && i == tokens.Length - 1;
-                InternalAdd(new MySqlSyntaxItem(tokens[i], lastItem));
+                InternalAdd(new MySqlSyntaxToken(tokens[i], lastItem));
             }
         }
 
-        private void InternalAdd(MySqlSyntaxItem item)
+        private void InternalAdd(MySqlSyntaxToken item)
         {
             item.SetLineNumber(_syntaxLineNumbers + 1);
             item.SetStartLine(_list.Count == 0 || _list[^1].EndLine);
@@ -122,6 +127,12 @@ namespace Underground.ORM.Core.Translator.Syntax
             _list.Add(item);
 
             if (item.EndLine) Interlocked.Increment(ref _syntaxLineNumbers);
+        }
+
+        public void AppendRange(MySqlSyntaxToken[] list)
+        {
+            foreach (var item in list)
+                InternalAdd(item);
         }
 
         public void AppendRange(MySqlSyntax list)
@@ -142,32 +153,32 @@ namespace Underground.ORM.Core.Translator.Syntax
             _syntaxLineNumbers = 0;
         }
 
-        public bool Contains(MySqlSyntaxItem item)
+        public bool Contains(MySqlSyntaxToken item)
         {
             return _list.Contains(item);
         }
 
-        public void CopyTo(MySqlSyntaxItem[] array, int arrayIndex)
+        public void CopyTo(MySqlSyntaxToken[] array, int arrayIndex)
         {
             _list.CopyTo(array, arrayIndex);
         }
 
-        public IEnumerator<MySqlSyntaxItem> GetEnumerator()
+        public IEnumerator<MySqlSyntaxToken> GetEnumerator()
         {
             return _list.GetEnumerator();
         }
 
-        public int IndexOf(MySqlSyntaxItem item)
+        public int IndexOf(MySqlSyntaxToken item)
         {
             return _list.IndexOf(item);
         }
 
-        public void Insert(int index, MySqlSyntaxItem item)
+        public void Insert(int index, MySqlSyntaxToken item)
         {
             throw new NotImplementedException();
         }
 
-        public bool Remove(MySqlSyntaxItem item)
+        public bool Remove(MySqlSyntaxToken item)
         {
             throw new NotImplementedException();
         }
@@ -191,13 +202,15 @@ namespace Underground.ORM.Core.Translator.Syntax
         public object Clone()
         {
             MySqlSyntax listClone = (MySqlSyntax)MemberwiseClone();
-            listClone._list = _list.Select(x => (MySqlSyntaxItem)x.Clone()).ToList();
+            listClone._list = _list.Select(x => (MySqlSyntaxToken)x.Clone()).ToList();
             return listClone;
         }
 
-        public static implicit operator MySqlSyntax(MySqlSyntaxItem item)
+        public static implicit operator MySqlSyntax(MySqlSyntaxToken item)
         {
-            return new MySqlSyntax() { item };
+            var list = new MySqlSyntax();
+            list.Append(item);
+            return list;
         }
 
         public static implicit operator MySqlSyntax(string token)

@@ -37,10 +37,11 @@ namespace Urderground.ORM.Core.Translator
                 var nullableTypeSyntax = predefinedType.Type as NullableTypeSyntax;
                 var qualifiedNameSyntax = predefinedType.Type as QualifiedNameSyntax;
 
-                string variableTypeName = "";
-
+                string variableTypeName;
                 if (nullableTypeSyntax != null)
+                {
                     variableTypeName = csFileContent[nullableTypeSyntax.Span.Start..nullableTypeSyntax.Span.End].TrimEnd('?');
+                }
                 else if (qualifiedNameSyntax != null)
                 {
                     variableTypeName = csFileContent[qualifiedNameSyntax!.Span.Start..qualifiedNameSyntax.Span.End];
@@ -80,7 +81,7 @@ namespace Urderground.ORM.Core.Translator
                     string variableName = variableDeclarator.Identifier.ValueText;
 
                     mysqlDeclare.Add(1, new("DECLARE "));
-                    mysqlDeclare.Add(2, new($"`{variableName}` "));
+                    mysqlDeclare.Add(2, new MySqlSyntaxVariableToken($"`{variableName}` "));
 
                     variablesCount++;
                 }

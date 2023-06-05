@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Data;
 using System.Reflection;
 using Underground.ORM.Core.Attributes;
 using Underground.ORM.Core.Translator.Parameter;
@@ -10,7 +11,7 @@ namespace Urderground.ORM.Core.Translator
 {
     public partial class MySqlTranslator
     {
-        public MySqlSyntaxBuilt TranslateToFunctionCreateSyntax(MethodInfo method)
+        public MySqlSyntaxBuilt TranslateToFunctionCreateStatementSyntax(MethodInfo method)
         {
             var functionAttribute = method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
 
@@ -57,16 +58,16 @@ namespace Urderground.ORM.Core.Translator
 
             MySqlSyntax mysqlSyntaxOut = new();
 
-            var arguments = parametersIn
-                .Select(x => new MySqlSyntax() 
-                {
-                    $"`{x.Argument}` ", x.DbType, ", ",
-                }).ToList();
-
-            arguments.Last().RemoveLast();
-
             mysqlSyntaxOut.Append("CREATE ", "FUNCTION ", $"`{functionAttribute.RoutineName}`", "(");
-            mysqlSyntaxOut.AppendRange(arguments);
+
+            foreach (var dbType in parametersIn)
+            {
+                mysqlSyntaxOut.Append(new MySqlSyntaxVariableToken($"`{dbType.Argument}` "));
+                mysqlSyntaxOut.AppendRange(dbType.DbType);
+                mysqlSyntaxOut.Append(", ");
+            }
+            mysqlSyntaxOut.RemoveLast();
+
             mysqlSyntaxOut.AppendLine(")");
             mysqlSyntaxOut.AppendLine("RETURNS ", $"{mysqlReturnDbType.DbType}");
             mysqlSyntaxOut.AppendLine("BEGIN");
@@ -112,73 +113,94 @@ namespace Urderground.ORM.Core.Translator
             return dbType;
         }
 
-        private string GetDbType(Type returnType)
+        private MySqlSyntax GetDbType(Type returnType)
         {
-            string dbType;
+            MySqlSyntax dbType;
 
             if (returnType.Name == "List`1")
             {
-                dbType = "JSON";
+                dbType = new MySqlSyntaxToken(
+                    "JSON", DbType.Object);
             }
             else if (returnType == typeof(string))
             {
-                dbType = "VARCHAR(255)";
+                dbType = new((MySqlSyntaxToken)
+                    new ("VARCHAR", DbType.AnsiString), 
+                    "(", "255", ")");
             }
             else if (returnType == typeof(bool))
             {
-                dbType = "TINYINT";
+                dbType = new MySqlSyntaxToken(
+                    "BOOL", DbType.Boolean);
             }
             else if (returnType == typeof(short))
             {
-                dbType = "SMALLINT";
+                dbType = new MySqlSyntaxToken(
+                    "SMALLINT", DbType.Int16);
             }
             else if (returnType == typeof(ushort))
             {
-                dbType = "SMALLINT UNSIGNED";
+                dbType = new ((MySqlSyntaxToken)
+                    new ("SMALLINT ", DbType.UInt16), 
+                    new ("UNSIGNED"));
             }
             else if (returnType == typeof(int))
             {
-                dbType = "INT";
+                dbType = new MySqlSyntaxToken(
+                    "INT", DbType.Int32);
             }
             else if (returnType == typeof(uint))
             {
-                dbType = "INT UNSIGNED";
+                dbType = new ((MySqlSyntaxToken)
+                    new ("INT ", DbType.UInt32), 
+                    new ("UNSIGNED"));
             }
             else if (returnType == typeof(long))
             {
-                dbType = "BIGINT";
+                dbType = new MySqlSyntaxToken(
+                    "BIGINT", DbType.Int64);
             }
             else if (returnType == typeof(ulong))
             {
-                dbType = "BIGINT UNSIGNED";
+                dbType = new((MySqlSyntaxToken)
+                    new("BIGINT ", DbType.UInt64), 
+                    new("UNSIGNED"));
             }
             else if (returnType == typeof(decimal))
             {
-                dbType = "DECIMAL";
+                dbType = new MySqlSyntaxToken(
+                    "DECIMAL", DbType.Decimal);
             }
             else if (returnType == typeof(double))
             {
-                dbType = "DECIMAL";
+                dbType = new MySqlSyntaxToken(
+                    "DOUBLE", DbType.Double);
             }
             else if (returnType == typeof(byte[]))
             {
-                dbType = "LONGBLOB";
+                dbType = new MySqlSyntaxToken(
+                    "LONGBLOB", DbType.Binary);
             }
             else if (returnType == typeof(DateTime))
             {
-                dbType = "DATETIME";
+                dbType = new MySqlSyntaxToken(
+                    "DATETIME", DbType.DateTime);
             }
             else if (returnType == typeof(TimeSpan))
             {
-                dbType = "TIMESTAMP";
+                dbType = new MySqlSyntaxToken(
+                    "TIMESTAMP", DbType.Time);
             }
             else if (returnType == typeof(Guid))
             {
-                dbType = "CHAR(36)";
+                dbType = new ((MySqlSyntaxToken)
+                    new("CHAR", DbType.AnsiStringFixedLength), 
+                    "(", "36", ")");
             }
             else if (returnType == typeof(char))
             {
-                dbType = "CHAR";
+                dbType = new MySqlSyntaxToken(
+                    "CHAR", DbType.AnsiStringFixedLength);
             }
             else
                 throw new NotImplementedException();
