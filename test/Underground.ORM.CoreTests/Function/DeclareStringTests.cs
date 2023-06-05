@@ -42,7 +42,7 @@ namespace Underground.ORM.CoreTests.Function
             string var4 = "";
             string var5 = "string tests";
 
-            return var2 + var3 + var4 + var5 + " " + a + " " + b;
+            return var2 + var3 + ((var4 + var5) + " ") + a + " " + b;
         }
 
 #pragma warning restore CS0219,CS0168,IDE0059,IDE0004,IDE0047,CS8600

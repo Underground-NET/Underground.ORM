@@ -1,7 +1,9 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Expression;
 using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax.Variable;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -34,6 +36,8 @@ namespace Urderground.ORM.Core.Translator
                     var parenthesizedExpressionSyntax = token.Parent as ParenthesizedExpressionSyntax;
                     var predefinedTypeSyntax = token.Parent as PredefinedTypeSyntax;
 
+                    var kind = token.Parent.Kind();
+
                     if (qualifiedNameSyntax != null)
                     {
                         if (currentElevatorCast != null) continue;
@@ -42,11 +46,16 @@ namespace Urderground.ORM.Core.Translator
                     {
                         if (currentElevatorCast != null) continue;
 
-                        mysqlExpression.Append($"`{token.ValueText}`");
+                        mysqlExpression.Append(new MySqlSyntaxVariableReferenceToken($"`{token.ValueText}`"));
                     }
                     else if (literalExpressionSyntax != null)
                     {
-                        mysqlExpression.Append(token.Text);
+                        if (kind == SyntaxKind.StringLiteralExpression)
+                        {
+                            mysqlExpression.Append(new MySqlSyntaxStringToken(token.Text));
+                        }
+                        else
+                            mysqlExpression.Append(token.Text);
                     }
                     else if (castExpressionSyntax != null)
                     {
@@ -133,17 +142,42 @@ namespace Urderground.ORM.Core.Translator
             });
             #endregion
 
-            TranslatePlusOperatorToMySqlConcat(mysqlExpression, mysqlSyntaxOut);
+            ConvertPlusOperatorStringToConcat(mysqlExpression, mysqlSyntaxOut);
 
             return mysqlExpression;
         }
 
-        private void TranslatePlusOperatorToMySqlConcat(MySqlSyntax expression,
-                                                        MySqlSyntax mysqlSyntaxOut)
+        private void ConvertPlusOperatorStringToConcat(MySqlSyntax expression,
+                                                       MySqlSyntax mysqlSyntaxOut)
         {
-            foreach (var token in expression)
-            {
+            expression.UpdateReferences(mysqlSyntaxOut);
 
+            for (int i = 0; i < expression.Count; i++)
+            {
+                MySqlSyntaxToken item = expression[i];
+
+                if (item == "+")
+                {
+                    if (item.Previous!.IsString ||
+                        (item.Previous!.Reference is not null && item.Previous!.Reference.IsVar &&
+                        ((MySqlSyntaxVariableToken)item.Previous.Reference).DbType == System.Data.DbType.String))
+                    {
+                        expression[i] = new(", ");
+                    }
+
+                    // Tornar parenteses uma expressão CONCAT
+
+                    int level = expression[i].ElevatorLevel;
+
+                    //if (level == 0)
+                    //{
+                    //    expression.Insert(0, new("CONCAT("));
+                    //    expression.Append(")");
+                    //}
+
+                    //var take = expression.Take(i).Reverse().ToList();
+
+                }
             }
         }
 

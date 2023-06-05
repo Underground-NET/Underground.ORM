@@ -1,10 +1,8 @@
-﻿using System.Data;
-
-namespace Underground.ORM.Core.Translator.Syntax
+﻿namespace Underground.ORM.Core.Translator.Syntax
 {
     public class MySqlSyntaxToken : ICloneable
     {
-        public string Token { get; private set; }
+        public string Token { get; protected set; }
 
         public int LineNumber { get; private set; }
 
@@ -14,9 +12,21 @@ namespace Underground.ORM.Core.Translator.Syntax
 
         public bool RightSpace { get; private set; }
 
-        public DbType? DbType { get; private set; } = null;
+        public virtual bool IsDbType { get; set; }
 
-        public bool IsVar { get; protected set; }
+        public virtual bool IsVar { get; set; }
+
+        public virtual bool IsString { get; set; }
+
+        public virtual bool IsVarRef { get; set; }
+
+        public int ElevatorLevel { get; set; }
+
+        public virtual MySqlSyntaxToken? Previous { get; set; }
+
+        public virtual MySqlSyntaxToken? Next { get; set; }
+
+        public virtual MySqlSyntaxToken? Reference { get; set; }
 
         public override string ToString() => $"Line: {LineNumber}, '{Token}'";
 
@@ -27,13 +37,6 @@ namespace Underground.ORM.Core.Translator.Syntax
         public object Clone()
         {
             return MemberwiseClone();
-        }
-
-        public MySqlSyntaxToken(string token, 
-                                DbType dbType) :
-            this(token, newline: false)
-        {
-            DbType = dbType;
         }
 
         public MySqlSyntaxToken(string token) :
@@ -53,6 +56,16 @@ namespace Underground.ORM.Core.Translator.Syntax
         public static implicit operator MySqlSyntaxToken(string token)
         {
             return new MySqlSyntaxToken(token);
+        }
+
+        public static bool operator ==(MySqlSyntaxToken left, string right)
+        {
+            return left.Token.Equals(right);
+        }
+
+        public static bool operator !=(MySqlSyntaxToken left, string right)
+        {
+            return !left.Token.Equals(right);
         }
     }
 }

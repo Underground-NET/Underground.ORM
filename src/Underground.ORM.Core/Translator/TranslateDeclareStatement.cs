@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax.Variable;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -121,6 +122,9 @@ namespace Urderground.ORM.Core.Translator
                                                       MySqlSyntax mysqlSyntaxOut)
         {
             if (!mysqlDeclare.Any()) return;
+
+            var dbTypeToken = mysqlDbType.Item2.OfType<MySqlSyntaxDbTypeToken>().First();
+            ((MySqlSyntaxVariableToken)mysqlDeclare[2][0]).SetDbType(dbTypeToken);
 
             mysqlDeclare.Add(mysqlDbType.Order, (MySqlSyntax)mysqlDbType.Item2.Clone());
 

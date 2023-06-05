@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using Underground.ORM.Core.Translator.Pretty;
+using Underground.ORM.Core.Translator.Syntax.Variable;
 
 namespace Underground.ORM.Core.Translator.Syntax
 {
@@ -124,6 +125,38 @@ namespace Underground.ORM.Core.Translator.Syntax
             item.SetLineNumber(_syntaxLineNumbers + 1);
             item.SetStartLine(_list.Count == 0 || _list[^1].EndLine);
 
+            if (item is MySqlSyntaxVariableReferenceToken)
+            {
+                var found = _list.OfType<MySqlSyntaxVariableToken>()
+                    .Reverse().FirstOrDefault(x => x.IsVar && x.Token == item.Token);
+
+                if (found is not null)
+                {
+                    item.Reference = found;
+                }
+            }
+
+            if (_list.Count > 1) _list[^2].Next = _list[^1];
+            item.Previous = _list.Count > 0 ? _list[^1] : null;
+
+            #region ElevatorLevel
+
+            if (item == "(")
+            {
+                item.ElevatorLevel = item?.Previous?.ElevatorLevel + 1 ?? 0;
+            }
+            else if (
+                item.Previous is not null &&
+                item.Previous == ")")
+            {
+                item.ElevatorLevel = item?.Previous?.ElevatorLevel - 1 ?? 0;
+            }
+            else
+            {
+                item.ElevatorLevel = item?.Previous?.ElevatorLevel ?? 0;
+            }
+            #endregion
+
             _list.Add(item);
 
             if (item.EndLine) Interlocked.Increment(ref _syntaxLineNumbers);
@@ -150,7 +183,12 @@ namespace Underground.ORM.Core.Translator.Syntax
         public void Clear()
         {
             _list.Clear();
-            _syntaxLineNumbers = 0;
+            UpdateSyntaxLineNumbers();
+        }
+
+        void UpdateSyntaxLineNumbers()
+        {
+            _syntaxLineNumbers = _list.Count > 0 ? _list[^1].LineNumber : 0;
         }
 
         public bool Contains(MySqlSyntaxToken item)
@@ -196,7 +234,7 @@ namespace Underground.ORM.Core.Translator.Syntax
         public void RemoveLast()
         {
             _list.RemoveAt(_list.Count - 1);
-            _syntaxLineNumbers = _list[^1].LineNumber;
+            UpdateSyntaxLineNumbers();
         }
 
         public object Clone()
@@ -204,6 +242,24 @@ namespace Underground.ORM.Core.Translator.Syntax
             MySqlSyntax listClone = (MySqlSyntax)MemberwiseClone();
             listClone._list = _list.Select(x => (MySqlSyntaxToken)x.Clone()).ToList();
             return listClone;
+        }
+
+        internal void UpdateReferences(MySqlSyntax mysqlSyntax)
+        {
+            var variableDeclared = mysqlSyntax.OfType<MySqlSyntaxVariableToken>().Reverse();
+
+            foreach (var item in _list.OfType<MySqlSyntaxVariableReferenceToken>())
+            {
+                if (item is MySqlSyntaxVariableReferenceToken)
+                {
+                    var found = variableDeclared.FirstOrDefault(x => x.IsVar && x.Token == item.Token);
+
+                    if (found is not null)
+                    {
+                        item.Reference = found;
+                    }
+                }
+            }
         }
 
         public static implicit operator MySqlSyntax(MySqlSyntaxToken item)
