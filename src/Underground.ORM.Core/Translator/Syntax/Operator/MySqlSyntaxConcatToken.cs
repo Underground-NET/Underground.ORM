@@ -1,6 +1,4 @@
-﻿using System.Data;
-
-namespace Underground.ORM.Core.Translator.Syntax.Variable
+﻿namespace Underground.ORM.Core.Translator.Syntax.Operator
 {
     public class MySqlSyntaxConcatToken : MySqlSyntaxToken
     {

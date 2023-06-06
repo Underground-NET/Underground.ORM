@@ -1,9 +1,9 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using System.Linq.Expressions;
 using Underground.ORM.Core.Translator.Expression;
 using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax.Operator;
 using Underground.ORM.Core.Translator.Syntax.Variable;
 
 namespace Urderground.ORM.Core.Translator
