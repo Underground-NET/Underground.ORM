@@ -123,6 +123,12 @@ namespace Underground.ORM.Core.Translator.Syntax
 
         private void InternalAdd(MySqlSyntaxToken item, int indexAt, bool insert)
         {
+            if (indexAt == _list.Count)
+            {
+                indexAt = -1;
+                insert = false;
+            }
+
             bool add = false;
             if (indexAt == -1)
             {

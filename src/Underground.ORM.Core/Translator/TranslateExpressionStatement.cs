@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Linq.Expressions;
 using Underground.ORM.Core.Translator.Expression;
 using Underground.ORM.Core.Translator.Syntax;
 using Underground.ORM.Core.Translator.Syntax.Variable;
@@ -142,7 +143,10 @@ namespace Urderground.ORM.Core.Translator
             });
             #endregion
 
+            mysqlExpression.UpdateReferences(mysqlSyntaxOut);
+
             ConvertPlusOperatorStringToConcat(mysqlExpression, mysqlSyntaxOut);
+            InsertCoalesceToAllVariablesReference(mysqlExpression, mysqlSyntaxOut);
 
             return mysqlExpression;
         }
@@ -150,8 +154,6 @@ namespace Urderground.ORM.Core.Translator
         private void ConvertPlusOperatorStringToConcat(MySqlSyntax expression,
                                                        MySqlSyntax mysqlSyntaxOut)
         {
-            expression.UpdateReferences(mysqlSyntaxOut);
-
             for (int i = 0; i < expression.Count; i++)
             {
                 MySqlSyntaxToken item = expression[i];
@@ -186,7 +188,7 @@ namespace Urderground.ORM.Core.Translator
                     var first = items.First();
                     var last = items.Last();
 
-                    if (isConcat) 
+                    if (isConcat)
                     {
                         if (first.Token == "(" && last.Token == ")")
                         {
@@ -202,6 +204,24 @@ namespace Urderground.ORM.Core.Translator
                             expression.Append(")");
                         }
                     }
+                }
+            }
+        }
+
+        private void InsertCoalesceToAllVariablesReference(MySqlSyntax expression,
+                                                           MySqlSyntax mysqlSyntaxOut)
+        {
+            for (int i = 0; i < expression.Count; i++)
+            {
+                MySqlSyntaxToken item = expression[i];
+
+                if (item.IsVarRef)
+                {
+                    expression.AppendAt(i, "COALESCE");
+                    expression.AppendAt(i + 1, "(");
+                    expression.AppendAt(i + 3, ",");
+                    expression.AppendAt(i + 4, "''");
+                    expression.AppendAt(i += 5, ")");
                 }
             }
         }
