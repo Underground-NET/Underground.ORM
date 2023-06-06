@@ -1,7 +1,10 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Expression;
 using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax.Operator;
+using Underground.ORM.Core.Translator.Syntax.Variable;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -34,6 +37,8 @@ namespace Urderground.ORM.Core.Translator
                     var parenthesizedExpressionSyntax = token.Parent as ParenthesizedExpressionSyntax;
                     var predefinedTypeSyntax = token.Parent as PredefinedTypeSyntax;
 
+                    var kind = token.Parent.Kind();
+
                     if (qualifiedNameSyntax != null)
                     {
                         if (currentElevatorCast != null) continue;
@@ -42,11 +47,16 @@ namespace Urderground.ORM.Core.Translator
                     {
                         if (currentElevatorCast != null) continue;
 
-                        mysqlExpression.Append($"`{token.ValueText}`");
+                        mysqlExpression.Append(new MySqlSyntaxVariableReferenceToken($"`{token.ValueText}`"));
                     }
                     else if (literalExpressionSyntax != null)
                     {
-                        mysqlExpression.Append(token.Text);
+                        if (kind == SyntaxKind.StringLiteralExpression)
+                        {
+                            mysqlExpression.Append(new MySqlSyntaxStringToken(token.Text));
+                        }
+                        else
+                            mysqlExpression.Append(token.Text);
                     }
                     else if (castExpressionSyntax != null)
                     {
@@ -133,7 +143,87 @@ namespace Urderground.ORM.Core.Translator
             });
             #endregion
 
+            mysqlExpression.UpdateReferences(mysqlSyntaxOut);
+
+            ConvertPlusOperatorStringToConcat(mysqlExpression, mysqlSyntaxOut);
+            InsertCoalesceToAllVariablesReference(mysqlExpression, mysqlSyntaxOut);
+
             return mysqlExpression;
+        }
+
+        private void ConvertPlusOperatorStringToConcat(MySqlSyntax expression,
+                                                       MySqlSyntax mysqlSyntaxOut)
+        {
+            for (int i = 0; i < expression.Count; i++)
+            {
+                MySqlSyntaxToken item = expression[i];
+
+                if (item == "+")
+                {
+                    bool isStringLeft = item.Previous!.IsString ||
+                        (item.Previous!.Reference is not null && item.Previous!.Reference.IsVar &&
+                        ((MySqlSyntaxVariableToken)item.Previous.Reference).DbType == System.Data.DbType.String);
+
+                    bool isStringRight = item.Next!.IsString ||
+                        (item.Next!.Reference is not null && item.Next!.Reference.IsVar &&
+                        ((MySqlSyntaxVariableToken)item.Next.Reference).DbType == System.Data.DbType.String);
+
+                    if (isStringLeft || isStringRight)
+                    {
+                        expression.ReplaceAt(i, new MySqlSyntaxConcatToken(", "));
+                    }
+                }
+            }
+
+            var levels = expression.GetLevels();
+
+            foreach (var level in levels)
+            {
+                var groups = expression.GetGroupsItemsFromLevel(level);
+
+                foreach (var items in groups)
+                {
+                    var isConcat = items.Exists(x => x is MySqlSyntaxConcatToken);
+
+                    var first = items.First();
+                    var last = items.Last();
+
+                    if (isConcat)
+                    {
+                        if (first.Token == "(" && last.Token == ")")
+                        {
+                            var idxFirst = expression.IndexOf(first);
+                            var idxLast = expression.IndexOf(last);
+
+                            expression.AppendAt(idxFirst, new MySqlSyntaxToken("CONCAT"));
+                        }
+                        else
+                        {
+                            expression.AppendAt(0, "CONCAT");
+                            expression.AppendAt(1, "(");
+                            expression.Append(")");
+                        }
+                    }
+                }
+            }
+        }
+
+        private void InsertCoalesceToAllVariablesReference(MySqlSyntax expression,
+                                                           MySqlSyntax mysqlSyntaxOut)
+        {
+            for (int i = 0; i < expression.Count; i++)
+            {
+                MySqlSyntaxToken item = expression[i];
+
+                if (item.IsVarRef)
+                {
+                    expression.AppendAt(i, "COALESCE");
+                    expression.AppendAt(i + 1, "(");
+                    expression.AppendAt(i + 3, ",");
+                    expression.AppendAt(i + 4, "''");
+                    expression.AppendAt(i += 5, ")");
+                }
+            }
         }
 
         private void CloseParenthesesFromCastFunctions(int currentLevel,
@@ -149,7 +239,7 @@ namespace Urderground.ORM.Core.Translator
             }
         }
 
-        private (MySqlSyntaxItem Function, MySqlSyntax? Alias)
+        private (MySqlSyntaxToken Function, MySqlSyntax? Alias)
             BuildLeftCastFunctionFromToken(string castType, string contentDeclaration)
         {
             if (castType == "ulong" ||

@@ -200,7 +200,9 @@ namespace Underground.ORM.Core
                     $"SELECT `{_connection.Database}`.`{functionAttribute.RoutineName}`" +
                     $"({string.Join(",", parameters.Select(x => $"@{x.ParameterName}"))})";
 
-                return (TReturn?)await command.ExecuteScalarAsync(ct);
+                var result = await command.ExecuteScalarAsync(ct);
+                if (result is DBNull) result = null;
+                return (TReturn?)result;
             }
 
             throw new Exception($"Scope attribute not set for method '{method.Name}'");
@@ -244,7 +246,7 @@ namespace Underground.ORM.Core
         {
             MySqlTranslator translator = new();
 
-            var mysqlSyntaxBuilt = translator.TranslateToFunctionCreateSyntax(method);
+            var mysqlSyntaxBuilt = translator.TranslateToFunctionCreateStatementSyntax(method);
 
             return mysqlSyntaxBuilt;
         }

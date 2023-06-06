@@ -29,6 +29,12 @@ namespace Underground.ORM.CoreTests.Function
             Assert.AreEqual(somaMySql, somaCSharp);
         }
 
+        [MySqlFunctionScope(nameof(SumFunctionTest))]
+        private int SumFunctionTest(int a, int b)
+        {
+            return a + b;
+        }
+
         [TestMethod()]
         public async Task SubtractTest()
         {
@@ -41,12 +47,6 @@ namespace Underground.ORM.CoreTests.Function
             var subtracaoMySql = await _orm.RunFunctionAsync(SubtractFunctionTest, 10, 5);
 
             Assert.AreEqual(subtracaoMySql, subtracaoCSharp);
-        }
-
-        [MySqlFunctionScope(nameof(SumFunctionTest))]
-        private int SumFunctionTest(int a, int b)
-        {
-            return a + b;
         }
 
         [MySqlFunctionScope(nameof(SubtractFunctionTest))]

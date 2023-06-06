@@ -5,7 +5,7 @@ namespace Underground.ORM.Core.Translator.Expression
 {
     public class ElevatorCastExpression
     {
-        public MySqlSyntaxItem Function { get; set; }
+        public MySqlSyntaxToken Function { get; set; }
 
         public MySqlSyntax? Alias { get; set; }
 
