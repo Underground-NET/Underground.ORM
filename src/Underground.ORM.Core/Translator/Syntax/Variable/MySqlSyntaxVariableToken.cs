@@ -14,6 +14,12 @@ namespace Underground.ORM.Core.Translator.Syntax.Variable
             IsVar = true;
         }
 
+        public MySqlSyntaxVariableToken(string token, DbType dbType) :
+            this(token)
+        {
+            DbType = dbType;
+        }
+
         public void SetDbType(MySqlSyntaxDbTypeToken token)
         {
             DbType = token.DbType;

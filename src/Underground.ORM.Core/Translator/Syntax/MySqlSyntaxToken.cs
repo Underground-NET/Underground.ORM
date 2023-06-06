@@ -20,6 +20,8 @@
 
         public virtual bool IsVarRef { get; set; }
 
+        public virtual bool IsConcat { get; set; }
+
         public int ElevatorLevel { get; set; }
 
         public virtual MySqlSyntaxToken? Previous { get; set; }

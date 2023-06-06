@@ -158,25 +158,50 @@ namespace Urderground.ORM.Core.Translator
 
                 if (item == "+")
                 {
-                    if (item.Previous!.IsString ||
+                    bool isStringLeft = item.Previous!.IsString ||
                         (item.Previous!.Reference is not null && item.Previous!.Reference.IsVar &&
-                        ((MySqlSyntaxVariableToken)item.Previous.Reference).DbType == System.Data.DbType.String))
+                        ((MySqlSyntaxVariableToken)item.Previous.Reference).DbType == System.Data.DbType.String);
+
+                    bool isStringRight = item.Next!.IsString ||
+                        (item.Next!.Reference is not null && item.Next!.Reference.IsVar &&
+                        ((MySqlSyntaxVariableToken)item.Next.Reference).DbType == System.Data.DbType.String);
+
+                    if (isStringLeft || isStringRight)
                     {
-                        expression[i] = new(", ");
+                        expression.ReplaceAt(i, new MySqlSyntaxConcatToken(", "));
                     }
+                }
+            }
 
-                    // Tornar parenteses uma expressão CONCAT
+            var levels = expression.GetLevels();
 
-                    int level = expression[i].ElevatorLevel;
+            foreach (var level in levels)
+            {
+                var groups = expression.GetGroupsItemsFromLevel(level);
 
-                    //if (level == 0)
-                    //{
-                    //    expression.Insert(0, new("CONCAT("));
-                    //    expression.Append(")");
-                    //}
+                foreach (var items in groups)
+                {
+                    var isConcat = items.Exists(x => x is MySqlSyntaxConcatToken);
 
-                    //var take = expression.Take(i).Reverse().ToList();
+                    var first = items.First();
+                    var last = items.Last();
 
+                    if (isConcat) 
+                    {
+                        if (first.Token == "(" && last.Token == ")")
+                        {
+                            var idxFirst = expression.IndexOf(first);
+                            var idxLast = expression.IndexOf(last);
+
+                            expression.AppendAt(idxFirst, new MySqlSyntaxToken("CONCAT"));
+                        }
+                        else
+                        {
+                            expression.AppendAt(0, "CONCAT");
+                            expression.AppendAt(1, "(");
+                            expression.Append(")");
+                        }
+                    }
                 }
             }
         }

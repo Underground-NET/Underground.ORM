@@ -61,10 +61,12 @@ namespace Urderground.ORM.Core.Translator
 
             mysqlSyntaxOut.Append("CREATE ", "FUNCTION ", $"`{functionAttribute.RoutineName}`", "(");
 
-            foreach (var dbType in parametersIn)
+            foreach (var token in parametersIn)
             {
-                mysqlSyntaxOut.Append(new MySqlSyntaxVariableToken($"`{dbType.Argument}` "));
-                mysqlSyntaxOut.AppendRange(dbType.DbType);
+                var dbTypeToken = token.DbType.OfType<MySqlSyntaxDbTypeToken>().First();
+
+                mysqlSyntaxOut.Append(new MySqlSyntaxVariableToken($"`{token.Argument}` ", (DbType)dbTypeToken.DbType!));
+                mysqlSyntaxOut.AppendRange(token.DbType);
                 mysqlSyntaxOut.Append(", ");
             }
             mysqlSyntaxOut.RemoveLast();

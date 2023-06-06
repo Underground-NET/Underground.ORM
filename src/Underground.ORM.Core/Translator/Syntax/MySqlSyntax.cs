@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Linq.Expressions;
 using Underground.ORM.Core.Translator.Pretty;
 using Underground.ORM.Core.Translator.Syntax.Variable;
 
@@ -88,12 +89,12 @@ namespace Underground.ORM.Core.Translator.Syntax
 
         public void Add(MySqlSyntaxToken item)
         {
-            InternalAdd(item);
+            InternalAdd(item, -1, false);
         }
 
         public void Append(MySqlSyntaxToken item)
         {
-            InternalAdd(item);
+            InternalAdd(item, -1, false);
         }
 
         public void Append(params string[] tokens)
@@ -116,14 +117,39 @@ namespace Underground.ORM.Core.Translator.Syntax
             for (int i = 0; i < tokens.Length; i++)
             {
                 bool lastItem = newLine && i == tokens.Length - 1;
-                InternalAdd(new MySqlSyntaxToken(tokens[i], lastItem));
+                InternalAdd(new MySqlSyntaxToken(tokens[i], lastItem), -1, false);
             }
         }
 
-        private void InternalAdd(MySqlSyntaxToken item)
+        private void InternalAdd(MySqlSyntaxToken item, int indexAt, bool insert)
         {
-            item.SetLineNumber(_syntaxLineNumbers + 1);
-            item.SetStartLine(_list.Count == 0 || _list[^1].EndLine);
+            bool add = false;
+            if (indexAt == -1)
+            {
+                add = true;
+                indexAt = _list.Count;
+            }
+            else
+                add = false;
+
+            int indexPrev = indexAt - 1;
+            int indexNext = indexAt + 1;
+
+            if(add)
+                item.SetLineNumber(_syntaxLineNumbers + 1);
+            else
+                item.SetLineNumber(_list[indexAt].LineNumber);
+
+            int lineNumber = item.LineNumber;
+
+            if (indexAt == 0)
+            {
+                item.SetStartLine(true);
+            }
+            else
+                item.SetStartLine(_list.Count == 0 || _list[indexPrev].EndLine);
+
+            #region Reference
 
             if (item is MySqlSyntaxVariableReferenceToken)
             {
@@ -136,8 +162,26 @@ namespace Underground.ORM.Core.Translator.Syntax
                 }
             }
 
-            if (_list.Count > 1) _list[^2].Next = _list[^1];
-            item.Previous = _list.Count > 0 ? _list[^1] : null;
+            #endregion
+
+            #region Adjust Previous Item
+
+            if (indexPrev > -1) _list[indexPrev].Next = item;
+
+            #endregion
+
+            #region Adjust Current Item
+
+            item.Previous = indexPrev > -1 ? _list[indexPrev] : null;
+            item.Next = _list.Count - 1 >= indexNext ? _list[indexNext] : null;
+
+            #endregion
+
+            #region Adjust Next Item
+
+            if (_list.Count - 1 >= indexNext) _list[indexNext].Previous = item;
+
+            #endregion
 
             #region ElevatorLevel
 
@@ -157,27 +201,37 @@ namespace Underground.ORM.Core.Translator.Syntax
             }
             #endregion
 
-            _list.Add(item);
+            if (insert)
+            {
+                _list.Insert(indexAt, item!);
+            }
+            else
+            {
+                if (add)
+                    _list.Add(item!);
+                else
+                    _list[indexAt] = item!;
+            }
 
-            if (item.EndLine) Interlocked.Increment(ref _syntaxLineNumbers);
+            if (item!.EndLine) Interlocked.Increment(ref _syntaxLineNumbers);
         }
 
         public void AppendRange(MySqlSyntaxToken[] list)
         {
             foreach (var item in list)
-                InternalAdd(item);
+                InternalAdd(item, -1, false);
         }
 
         public void AppendRange(MySqlSyntax list)
         {
             foreach (var item in list)
-                InternalAdd(item);
+                InternalAdd(item, -1, false);
         }
 
         public void AppendRange(IEnumerable<MySqlSyntax> lists)
         {
             foreach (var item in lists.SelectMany(x => x))
-                InternalAdd(item);
+                InternalAdd(item, -1, false);
         }
 
         public void Clear()
@@ -260,6 +314,45 @@ namespace Underground.ORM.Core.Translator.Syntax
                     }
                 }
             }
+        }
+
+        internal void ReplaceAt(int i, MySqlSyntaxToken token)
+        {
+            InternalAdd(token, i, false);
+        }
+
+        internal void AppendAt(int i, MySqlSyntaxToken token)
+        {
+            InternalAdd(token, i, true);
+        }
+
+        internal List<int> GetLevels()
+        {
+            return _list.Select(x => x.ElevatorLevel).Distinct().Reverse().ToList();
+        }
+
+        internal IEnumerable<List<MySqlSyntaxToken>> GetGroupsItemsFromLevel(int level)
+        {
+            var items = _list.Where(x => x.ElevatorLevel == level).ToList();
+
+            int pos = 0;
+            int idxOpen = -1;
+            int idxClose = -1;
+
+            do
+            {
+                idxOpen = items.FindIndex(pos, x => x.Token == "(");
+                idxClose = items.FindIndex(pos, x => x.Token == ")");
+
+                if (idxOpen > -1 && idxClose > -1)
+                {
+                    yield return items.Skip(idxOpen).Take(idxClose + 1).ToList();
+                    pos = idxClose + 1;
+                }
+
+            } while (idxClose > -1);
+
+            if (pos == 0) yield return items;
         }
 
         public static implicit operator MySqlSyntax(MySqlSyntaxToken item)
