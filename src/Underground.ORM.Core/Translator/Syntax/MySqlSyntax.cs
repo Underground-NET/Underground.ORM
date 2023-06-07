@@ -158,6 +158,7 @@ namespace Underground.ORM.Core.Translator.Syntax
                 if (found is not null)
                 {
                     item.Reference = found;
+                    item.IsString = found.IsString;
                 }
             }
 
@@ -310,6 +311,7 @@ namespace Underground.ORM.Core.Translator.Syntax
                     if (found is not null)
                     {
                         item.Reference = found;
+                        item.IsString = found.IsString;
                     }
                 }
             }

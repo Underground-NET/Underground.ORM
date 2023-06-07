@@ -6,7 +6,9 @@ namespace Underground.ORM.Core.Translator.Syntax.Declaration
     {
         public override bool IsDeclaration { get; set; }
 
-        public DbType? DbType { get; private set; } = null;
+        public override bool IsDbType { get; set; }
+
+        public override bool IsString { get; set; }
 
         public override bool IsVar { get; set; }
 
@@ -14,6 +16,7 @@ namespace Underground.ORM.Core.Translator.Syntax.Declaration
             base(token)
         {
             IsVar = true;
+            IsDbType = true;
             IsDeclaration = true;
         }
 

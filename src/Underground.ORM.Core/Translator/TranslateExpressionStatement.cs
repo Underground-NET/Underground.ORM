@@ -223,7 +223,7 @@ namespace Urderground.ORM.Core.Translator
             {
                 MySqlSyntaxToken item = expression[i];
                 
-                if (item.IsVarRef)
+                if (item.IsString)
                 {
                     expression.AppendAt(i, new CoalesceFunctionToken("COALESCE"));
                     expression.AppendAt(i + 1, new OpenParenthesisToken("("));

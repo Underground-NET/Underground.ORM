@@ -8,11 +8,15 @@ namespace Underground.ORM.Core.Translator.Syntax.Declaration
 
         public override bool IsString { get; set; }
 
+        public override bool IsDbType { get; set; }
+
         public StringToken(string token) :
             base(token)
         {
             IsString = true;
+            IsDbType = true;
             IsDeclaration = true;
+            DbType = System.Data.DbType.String;
 
             //Token = FormatString(token);
         }
