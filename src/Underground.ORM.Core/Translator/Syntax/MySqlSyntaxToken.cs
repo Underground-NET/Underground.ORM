@@ -58,6 +58,10 @@
 
         public virtual bool IsEndBlock { get; set; }
 
+        public virtual bool IsStatement { get; set; }
+
+        public virtual bool IsReturnStatement { get; set; }
+
         public bool NotDefinedToken { get; set; }
 
         public MySqlSyntaxToken? Previous { get; set; }

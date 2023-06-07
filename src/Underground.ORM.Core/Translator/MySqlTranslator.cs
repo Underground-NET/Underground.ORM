@@ -6,8 +6,8 @@ using System.Reflection;
 using Underground.ORM.Core.Attributes;
 using Underground.ORM.Core.Translator.Parameter;
 using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax.Block;
 using Underground.ORM.Core.Translator.Syntax.Declaration;
-using Underground.ORM.Core.Translator.Syntax.Function;
 using Underground.ORM.Core.Translator.Syntax.Operator;
 
 namespace Urderground.ORM.Core.Translator

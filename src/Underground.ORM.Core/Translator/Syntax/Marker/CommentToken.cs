@@ -1,4 +1,4 @@
-﻿namespace Underground.ORM.Core.Translator.Syntax.Operator
+﻿namespace Underground.ORM.Core.Translator.Syntax.Marker
 {
     public class CommentToken : MySqlSyntaxToken
     {

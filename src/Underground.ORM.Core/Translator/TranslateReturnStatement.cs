@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax.Statement;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -24,7 +25,7 @@ namespace Urderground.ORM.Core.Translator
 
                 if (returnStatementSyntax != null)
                 {
-                    mysqlStatement.Append("RETURN ");
+                    mysqlStatement.Append(new ReturnStatementToken("RETURN "));
                 }
                 else if (expressionSyntax != null)
                 {

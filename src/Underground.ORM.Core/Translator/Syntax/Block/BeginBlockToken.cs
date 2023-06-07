@@ -1,4 +1,4 @@
-﻿namespace Underground.ORM.Core.Translator.Syntax.Function
+﻿namespace Underground.ORM.Core.Translator.Syntax.Block
 {
     public class BeginBlockToken : MySqlSyntaxToken
     {

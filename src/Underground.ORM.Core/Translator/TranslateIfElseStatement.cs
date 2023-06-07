@@ -1,6 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax.Block;
+using Underground.ORM.Core.Translator.Syntax.Operator;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -22,7 +24,7 @@ namespace Urderground.ORM.Core.Translator
 
                 if (ifStatementSyntax != null)
                 {
-                    mysqlSyntaxOut.Append("IF", "(");
+                    mysqlSyntaxOut.Append("IF", new OpenParenthesisToken("("));
 
                     var condition = ifStatementSyntax.Condition;
                     var conditionDescendants = condition.DescendantNodesAndTokensAndSelf().ToList();
@@ -31,7 +33,9 @@ namespace Urderground.ORM.Core.Translator
                                                                            mysqlSyntaxOut);
 
                     mysqlSyntaxOut.AppendRange(conditionTranslated);
-                    mysqlSyntaxOut.AppendLine(")", "THEN");
+                    mysqlSyntaxOut.AppendLine(
+                        new CloseParenthesisToken(")"), 
+                        new BeginBlockToken("THEN"));
 
                     var statementSyntax = ifStatementSyntax.Statement;
 
@@ -49,7 +53,7 @@ namespace Urderground.ORM.Core.Translator
                                             elseSyntax.DescendantNodesAndTokensAndSelf().ToList(),
                                             mysqlSyntaxOut);
 
-                        mysqlSyntaxOut.AppendLine("END IF");
+                        mysqlSyntaxOut.AppendLine(new EndBlockToken("END"), "IF");
 
                     }
                 }

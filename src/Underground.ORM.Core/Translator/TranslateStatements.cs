@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax.Operator;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -41,7 +42,7 @@ namespace Urderground.ORM.Core.Translator
                     var leftIdentifierNameSyntax = left as IdentifierNameSyntax;
 
 
-                    mysqlSyntaxOut.Append(" = ");
+                    mysqlSyntaxOut.Append(new AttributionToken(" = "));
 
                     var right = assignmentExpressionSyntax.Right as ExpressionSyntax;
                     var rightDescendents = right.GetAnnotatedNodesAndTokens().ToList();
