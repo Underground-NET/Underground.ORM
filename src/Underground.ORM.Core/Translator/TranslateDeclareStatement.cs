@@ -1,7 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Syntax;
-using Underground.ORM.Core.Translator.Syntax.Variable;
+using Underground.ORM.Core.Translator.Syntax.Declaration;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -81,8 +81,8 @@ namespace Urderground.ORM.Core.Translator
 
                     string variableName = variableDeclarator.Identifier.ValueText;
 
-                    mysqlDeclare.Add(1, new("DECLARE "));
-                    mysqlDeclare.Add(2, new MySqlSyntaxVariableToken($"`{variableName}` "));
+                    mysqlDeclare.Add(1, "DECLARE ");
+                    mysqlDeclare.Add(2, new VariableToken($"`{variableName}` "));
 
                     variablesCount++;
                 }
@@ -90,7 +90,7 @@ namespace Urderground.ORM.Core.Translator
                 if (equalsValueClauseSyntax != null)
                 {
                     defaultValue = true;
-                    mysqlDeclare.Add(4, new("DEFAULT "));
+                    mysqlDeclare.Add(4, "DEFAULT ");
                 }
 
                 if (expressionSyntax != null && defaultValue)
@@ -123,8 +123,8 @@ namespace Urderground.ORM.Core.Translator
         {
             if (!mysqlDeclare.Any()) return;
 
-            var dbTypeToken = mysqlDbType.Item2.OfType<MySqlSyntaxDbTypeToken>().First();
-            ((MySqlSyntaxVariableToken)mysqlDeclare[2][0]).SetDbType(dbTypeToken);
+            var dbTypeToken = mysqlDbType.Item2.OfType<DbTypeToken>().First();
+            ((VariableToken)mysqlDeclare[2][0]).SetDbType(dbTypeToken);
 
             mysqlDeclare.Add(mysqlDbType.Order, (MySqlSyntax)mysqlDbType.Item2.Clone());
 

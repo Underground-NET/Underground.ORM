@@ -1,5 +1,6 @@
 ﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax.Marker;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -25,10 +26,10 @@ namespace Urderground.ORM.Core.Translator
                 {
                     if (line.StartsWith("//"))
                     {
-                        mysqlSyntaxOut.AppendLine("# " + line[2..].Trim());
+                        mysqlSyntaxOut.AppendLine(new CommentToken("# " + line[2..].Trim()));
                     }
                     else if (string.IsNullOrEmpty(line.Trim()))
-                        mysqlSyntaxOut.AppendLine();
+                        mysqlSyntaxOut.AppendLine("");
                 }
 
                 #endregion

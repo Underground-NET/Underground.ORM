@@ -36,15 +36,18 @@ namespace Underground.ORM.CoreTests.Function
         [MySqlFunctionScope(nameof(DeclareStringFunctionTest))]
         private string DeclareStringFunctionTest(string a, string b)
         {
+            // Comment 1
             string var1;
             string var2 = null;
             string? var3 = null;
             string var4 = "";
             string var5 = "string tests";
 
+            // Comment 2
             int aa = 5;
             int bb = 8;
 
+            // Comment 3
             return var2 + var3 + ((var4 + var5 + (aa - bb)) + " ") + a + " " + b + ("" + "asd" + (b + a));
         }
 

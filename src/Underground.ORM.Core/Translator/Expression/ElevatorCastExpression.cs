@@ -11,6 +11,6 @@ namespace Underground.ORM.Core.Translator.Expression
 
         public int Level { get; set; }
 
-        public CastExpressionSyntax Cast { get; set; }
+        public CastExpressionSyntax CastExpression { get; set; }
     }
 }

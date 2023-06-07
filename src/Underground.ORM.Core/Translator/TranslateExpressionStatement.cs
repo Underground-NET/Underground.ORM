@@ -1,10 +1,13 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Data;
 using Underground.ORM.Core.Translator.Expression;
 using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax.Declaration;
+using Underground.ORM.Core.Translator.Syntax.Function;
 using Underground.ORM.Core.Translator.Syntax.Operator;
-using Underground.ORM.Core.Translator.Syntax.Variable;
+using Underground.ORM.Core.Translator.Syntax.Reference;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -47,13 +50,13 @@ namespace Urderground.ORM.Core.Translator
                     {
                         if (currentElevatorCast != null) continue;
 
-                        mysqlExpression.Append(new MySqlSyntaxVariableReferenceToken($"`{token.ValueText}`"));
+                        mysqlExpression.Append(new VariableReferenceToken($"`{token.ValueText}`"));
                     }
                     else if (literalExpressionSyntax != null)
                     {
                         if (kind == SyntaxKind.StringLiteralExpression)
                         {
-                            mysqlExpression.Append(new MySqlSyntaxStringToken(token.Text));
+                            mysqlExpression.Append(new StringToken(token.Text));
                         }
                         else
                             mysqlExpression.Append(token.Text);
@@ -83,13 +86,13 @@ namespace Urderground.ORM.Core.Translator
                             elevatorCast.Add(new ElevatorCastExpression()
                             {
                                 Level = currentLevel,
-                                Cast = castExpressionSyntax,
+                                CastExpression = castExpressionSyntax,
                                 Function = Function,
                                 Alias = Alias
                             });
 
                             mysqlExpression.Append(Function);
-                            mysqlExpression.Append("(");
+                            mysqlExpression.Append(new OpenParenthesisToken("("));
                         }
                     }
                     else if (binaryExpressionSyntax != null)
@@ -100,10 +103,10 @@ namespace Urderground.ORM.Core.Translator
 
                         if (operatorToken == "==")
                         {
-                            operatorToken = "=";
+                            mysqlExpression.Append(new AttributionToken("="));
                         }
-
-                        mysqlExpression.Append(operatorToken);
+                        else
+                            mysqlExpression.Append(operatorToken);
                     }
                     else if (parenthesizedExpressionSyntax != null)
                     {
@@ -112,15 +115,19 @@ namespace Urderground.ORM.Core.Translator
                         if (parentheseToken == "(")
                         {
                             currentLevel++;
+
+                            mysqlExpression.Append(new OpenParenthesisToken("("));
                         }
                         else if (parentheseToken == ")")
                         {
                             CloseParenthesesFromCastFunctions(currentLevel, elevatorCast, mysqlExpression);
 
                             currentLevel--;
-                        }
 
-                        mysqlExpression.Append(parentheseToken);
+                            mysqlExpression.Append(new CloseParenthesisToken(")"));
+                        }
+                        else
+                            throw new NotImplementedException(parentheseToken);
                     }
                     else
                     {
@@ -139,20 +146,20 @@ namespace Urderground.ORM.Core.Translator
             elevatorCast.ForEach(lastElevator =>
             {
                 mysqlExpression.AppendRange(BuildRightCastFunction(lastElevator));
-                mysqlExpression.Append(")");
+                mysqlExpression.Append(new CloseParenthesisToken(")"));
             });
             #endregion
 
             mysqlExpression.UpdateReferences(mysqlSyntaxOut);
 
-            ConvertPlusOperatorStringToConcat(mysqlExpression, mysqlSyntaxOut);
+            ReplacePlusOperatorStringToCommaConcat(mysqlExpression, mysqlSyntaxOut);
             InsertCoalesceToAllVariablesReference(mysqlExpression, mysqlSyntaxOut);
 
             return mysqlExpression;
         }
 
-        private void ConvertPlusOperatorStringToConcat(MySqlSyntax expression,
-                                                       MySqlSyntax mysqlSyntaxOut)
+        private void ReplacePlusOperatorStringToCommaConcat(MySqlSyntax expression,
+                                                            MySqlSyntax mysqlSyntaxOut)
         {
             for (int i = 0; i < expression.Count; i++)
             {
@@ -162,15 +169,15 @@ namespace Urderground.ORM.Core.Translator
                 {
                     bool isStringLeft = item.Previous!.IsString ||
                         (item.Previous!.Reference is not null && item.Previous!.Reference.IsVar &&
-                        ((MySqlSyntaxVariableToken)item.Previous.Reference).DbType == System.Data.DbType.String);
+                        ((VariableToken)item.Previous.Reference).DbType == System.Data.DbType.String);
 
                     bool isStringRight = item.Next!.IsString ||
                         (item.Next!.Reference is not null && item.Next!.Reference.IsVar &&
-                        ((MySqlSyntaxVariableToken)item.Next.Reference).DbType == System.Data.DbType.String);
+                        ((VariableToken)item.Next.Reference).DbType == System.Data.DbType.String);
 
                     if (isStringLeft || isStringRight)
                     {
-                        expression.ReplaceAt(i, new MySqlSyntaxConcatToken(", "));
+                        expression.ReplaceAt(i, new CommaConcatToken(", "));
                     }
                 }
             }
@@ -183,25 +190,26 @@ namespace Urderground.ORM.Core.Translator
 
                 foreach (var items in groups)
                 {
-                    var isConcat = items.Exists(x => x is MySqlSyntaxConcatToken);
+                    var isCommaConcat = items.Exists(x => x is CommaConcatToken);
 
                     var first = items.First();
                     var last = items.Last();
 
-                    if (isConcat)
+                    if (isCommaConcat)
                     {
-                        if (first.Token == "(" && last.Token == ")")
+                        if (first is OpenParenthesisToken && 
+                            last is CloseParenthesisToken)
                         {
                             var idxFirst = expression.IndexOf(first);
                             var idxLast = expression.IndexOf(last);
 
-                            expression.AppendAt(idxFirst, new MySqlSyntaxToken("CONCAT"));
+                            expression.AppendAt(idxFirst, new ConcatFunctionToken("CONCAT"));
                         }
                         else
                         {
-                            expression.AppendAt(0, "CONCAT");
-                            expression.AppendAt(1, "(");
-                            expression.Append(")");
+                            expression.AppendAt(0, new ConcatFunctionToken("CONCAT"));
+                            expression.AppendAt(1, new OpenParenthesisToken("("));
+                            expression.Append(new CloseParenthesisToken(")"));
                         }
                     }
                 }
@@ -214,14 +222,14 @@ namespace Urderground.ORM.Core.Translator
             for (int i = 0; i < expression.Count; i++)
             {
                 MySqlSyntaxToken item = expression[i];
-
+                
                 if (item.IsVarRef)
                 {
-                    expression.AppendAt(i, "COALESCE");
-                    expression.AppendAt(i + 1, "(");
-                    expression.AppendAt(i + 3, ",");
-                    expression.AppendAt(i + 4, "''");
-                    expression.AppendAt(i += 5, ")");
+                    expression.AppendAt(i, new CoalesceFunctionToken("COALESCE"));
+                    expression.AppendAt(i + 1, new OpenParenthesisToken("("));
+                    expression.AppendAt(i + 3, new CommaConcatToken(","));
+                    expression.AppendAt(i + 4, new StringToken("''"));
+                    expression.AppendAt(i += 5, new CloseParenthesisToken(")"));
                 }
             }
         }
@@ -234,7 +242,7 @@ namespace Urderground.ORM.Core.Translator
             if (elevatorCast.Any() && currentLevel == (lastElevator = elevatorCast.Last()).Level)
             {
                 mysqlExpression.AppendRange(BuildRightCastFunction(lastElevator));
-                mysqlExpression.Append(")");
+                mysqlExpression.Append(new CloseParenthesisToken(")"));
                 elevatorCast.Remove(lastElevator);
             }
         }
@@ -246,46 +254,54 @@ namespace Urderground.ORM.Core.Translator
                 castType == "UInt64" ||
                 castType == "System.UInt64")
             {
-                return ("CAST", new("UNSIGNED"));
+                return (new CastFunctionToken("CAST"), new DbTypeToken("UNSIGNED", DbType.UInt64));
             }
             else if (
                 castType == "long" ||
                 castType == "Int64" ||
                 castType == "System.Int64")
             {
-                return ("CAST", new("SIGNED"));
+                return (new CastFunctionToken("CAST"), new DbTypeToken("SIGNED", DbType.Int64));
             }
             else if (
                 castType == "int" ||
                 castType == "Int32" ||
                 castType == "System.Int32")
             {
-                return ("CAST", new("SIGNED ", "INT"));
+                return (
+                    new CastFunctionToken("CAST"), new(
+                        new DbTypeToken("SIGNED ", DbType.Int32), 
+                        new DbTypeToken("INT", DbType.Int32))
+                    );
             }
             else if (
                 castType == "uint" ||
                 castType == "UInt32" ||
                 castType == "System.UInt32")
             {
-                return ("CAST", new("UNSIGNED ", "INT"));
+                return (
+                    new CastFunctionToken("CAST"), new (
+                        new DbTypeToken("UNSIGNED ", DbType.UInt32), 
+                        new DbTypeToken("INT", DbType.UInt32))
+                    );
             }
             else if (
                 castType == "short" ||
                 castType == "Int16" ||
                 castType == "System.Int16")
             {
-                return ("CAST", new("SIGNED"));
+                return (new CastFunctionToken("CAST"), new DbTypeToken("SIGNED", DbType.Int16));
             }
             else if (
                 castType == "ushort" ||
                 castType == "UInt16" ||
                 castType == "System.UInt16")
             {
-                return ("CAST", new("UNSIGNED"));
+                return (new CastFunctionToken("CAST"), new DbTypeToken("UNSIGNED", DbType.UInt16));
             }
             else if (castType == "char")
             {
-                return ("CHAR", null);
+                return (new CastFunctionToken("CHAR"), null);
             }
             else
                 throw new NotImplementedException($"Cast type '{castType}' of '{contentDeclaration}' not supported");
@@ -293,7 +309,7 @@ namespace Urderground.ORM.Core.Translator
 
         private MySqlSyntax BuildRightCastFunction(ElevatorCastExpression lastElevator)
         {
-            MySqlSyntax castFunction = ")";
+            MySqlSyntax castFunction = new CloseParenthesisToken(")");
 
             if (lastElevator.Alias != null)
             {
