@@ -1,7 +1,13 @@
-﻿namespace Underground.ORM.Core.Translator.Syntax
+﻿using System.Data;
+
+namespace Underground.ORM.Core.Translator.Syntax
 {
     public class MySqlSyntaxToken : ICloneable
     {
+        private DbType? dbType = null;
+
+        public string Name { get; private set; }
+
         public string Token { get; protected set; }
 
         public int LineNumber { get; private set; }
@@ -11,7 +17,7 @@
         public bool EndLine { get; private set; }
 
         public bool RightSpace { get; private set; }
-        
+
         public int ElevatorLevel { get; set; }
 
         public virtual bool IsDbType { get; set; }
@@ -62,6 +68,15 @@
 
         public virtual bool IsReturnStatement { get; set; }
 
+        public DbType? DbType { 
+            get => dbType;
+            protected set 
+            { 
+                dbType = value;
+                IsString = dbType == System.Data.DbType.String;
+            } 
+        }
+
         public bool NotDefinedToken { get; set; }
 
         public MySqlSyntaxToken? Previous { get; set; }
@@ -76,6 +91,22 @@
 
         internal protected void SetStartLine(bool startLine) => StartLine = startLine;
 
+        public MySqlSyntaxToken(string token) :
+            this(token, newline: false)
+        {
+            Name = this.GetType().Name;
+            NotDefinedToken = Name == nameof(MySqlSyntaxToken);
+        }
+
+        public MySqlSyntaxToken(string token,
+                                bool newline)
+        {
+            if (token.Length > 0 && token[^1] == ' ') RightSpace = true;
+
+            Token = token.TrimEnd();
+            EndLine = newline;
+        }
+
         public object Clone()
         {
             return MemberwiseClone();
@@ -84,22 +115,6 @@
         internal void SetEndLine()
         {
             EndLine = true;
-        }
-
-        public MySqlSyntaxToken(string token) :
-            this(token, newline: false)
-        {
-        }
-
-        public MySqlSyntaxToken(string token, 
-                                bool newline)
-        {
-            NotDefinedToken = true;
-
-            if (token.Length > 0 && token[^1] == ' ') RightSpace = true;
-
-            Token = token.TrimEnd();
-            EndLine = newline;
         }
 
         public static implicit operator MySqlSyntaxToken(string token)
