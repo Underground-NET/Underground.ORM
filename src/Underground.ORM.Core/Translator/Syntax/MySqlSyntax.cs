@@ -1,6 +1,8 @@
 ﻿using System.Collections;
 using Underground.ORM.Core.Translator.Pretty;
-using Underground.ORM.Core.Translator.Syntax.Variable;
+using Underground.ORM.Core.Translator.Syntax.Declaration;
+using Underground.ORM.Core.Translator.Syntax.Operator;
+using Underground.ORM.Core.Translator.Syntax.Reference;
 
 namespace Underground.ORM.Core.Translator.Syntax
 {
@@ -37,11 +39,6 @@ namespace Underground.ORM.Core.Translator.Syntax
         public MySqlSyntax(int capacity)
         {
             _list = new(capacity);
-        }
-
-        public MySqlSyntax(params string[] items)
-        {
-            Append(items);
         }
 
         public MySqlSyntax(params MySqlSyntaxToken[] items)
@@ -96,27 +93,24 @@ namespace Underground.ORM.Core.Translator.Syntax
             InternalAdd(item, -1, false);
         }
 
-        public void Append(params string[] tokens)
+        public void Append(params MySqlSyntaxToken[] tokens)
         {
             InternalAppend(tokens, false);
         }
 
-        public void AppendLine(params string[] tokens)
+        public void AppendLine(params MySqlSyntaxToken[] tokens)
         {
             InternalAppend(tokens, true);
         }
 
-        private void InternalAppend(string[] tokens, bool newLine)
+        private void InternalAppend(MySqlSyntaxToken[] tokens, bool newLine)
         {
-            if (tokens.Length == 0)
-            {
-                tokens = new[] { "" };
-            }
-
             for (int i = 0; i < tokens.Length; i++)
             {
                 bool lastItem = newLine && i == tokens.Length - 1;
-                InternalAdd(new MySqlSyntaxToken(tokens[i], lastItem), -1, false);
+                if (lastItem) tokens[i].SetEndLine();
+
+                InternalAdd(tokens[i], -1, false);
             }
         }
 
@@ -156,9 +150,9 @@ namespace Underground.ORM.Core.Translator.Syntax
 
             #region Reference
 
-            if (item is MySqlSyntaxVariableReferenceToken)
+            if (item is VariableReferenceToken)
             {
-                var found = _list.OfType<MySqlSyntaxVariableToken>()
+                var found = _list.OfType<VariableToken>()
                     .Reverse().FirstOrDefault(x => x.IsVar && x.Token == item.Token);
 
                 if (found is not null)
@@ -305,11 +299,11 @@ namespace Underground.ORM.Core.Translator.Syntax
 
         internal void UpdateReferences(MySqlSyntax mysqlSyntax)
         {
-            var variableDeclared = mysqlSyntax.OfType<MySqlSyntaxVariableToken>().Reverse();
+            var variableDeclared = mysqlSyntax.OfType<VariableToken>().Reverse();
 
-            foreach (var item in _list.OfType<MySqlSyntaxVariableReferenceToken>())
+            foreach (var item in _list.OfType<VariableReferenceToken>())
             {
-                if (item is MySqlSyntaxVariableReferenceToken)
+                if (item is VariableReferenceToken)
                 {
                     var found = variableDeclared.FirstOrDefault(x => x.IsVar && x.Token == item.Token);
 
@@ -346,8 +340,8 @@ namespace Underground.ORM.Core.Translator.Syntax
 
             do
             {
-                idxOpen = items.FindIndex(pos, x => x.Token == "(");
-                idxClose = items.FindIndex(pos, x => x.Token == ")");
+                idxOpen = items.FindIndex(pos, x => x is OpenParenthesisToken);
+                idxClose = items.FindIndex(pos, x => x is CloseParenthesisToken);
 
                 if (idxOpen > -1 && idxClose > -1)
                 {
