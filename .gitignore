@@ -361,4 +361,3 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-/test/Underground.ORM.CoreTests/Iteration/IterationTests.cs

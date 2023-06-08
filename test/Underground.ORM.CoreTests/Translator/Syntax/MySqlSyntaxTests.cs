@@ -40,7 +40,7 @@ namespace Underground.ORM.Core.Translator.Syntax.Tests
         }
 
         [TestMethod()]
-        public void AppendMultiLinesTest()
+        public void AppendMultiLineTest()
         {
             _syntax.AppendLine("1", "+", "(");
             _syntax.AppendLine("1", "-", "1", ")");
