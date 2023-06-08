@@ -85,7 +85,7 @@ namespace Underground.ORM.Core.Translator.Syntax
 
         public void Add(MySqlSyntaxToken item)
         {
-            InternalAdd(item, -1, false);
+            throw new NotImplementedException();
         }
 
         public void Append(MySqlSyntaxToken item)
@@ -132,7 +132,7 @@ namespace Underground.ORM.Core.Translator.Syntax
                 add = false;
 
             int indexPrev = indexAt - 1;
-            int indexNext = indexAt + 1;
+            int indexNext = insert ? indexAt : indexAt + 1;
 
             if(add)
                 item.SetLineNumber(_syntaxLineNumbers + 1);
@@ -166,7 +166,8 @@ namespace Underground.ORM.Core.Translator.Syntax
 
             #region Adjust Previous Item
 
-            if (indexPrev > -1) _list[indexPrev].Next = item;
+            if (indexPrev > -1) 
+                _list[indexPrev].Next = item;
 
             #endregion
 
@@ -187,7 +188,7 @@ namespace Underground.ORM.Core.Translator.Syntax
 
             if (item == "(")
             {
-                item.ElevatorLevel = item?.Previous?.ElevatorLevel + 1 ?? 0;
+                item.ElevatorLevel = item?.Previous?.ElevatorLevel + 1 ?? 1;
             }
             else if (
                 item.Previous is not null &&
@@ -298,7 +299,7 @@ namespace Underground.ORM.Core.Translator.Syntax
             return listClone;
         }
 
-        internal void UpdateReferences(MySqlSyntax mysqlSyntax)
+        public void UpdateReferences(MySqlSyntax mysqlSyntax)
         {
             var variableDeclared = mysqlSyntax.OfType<VariableToken>().Reverse();
 
@@ -317,22 +318,22 @@ namespace Underground.ORM.Core.Translator.Syntax
             }
         }
 
-        internal void ReplaceAt(int i, MySqlSyntaxToken token)
+        public void ReplaceAt(int i, MySqlSyntaxToken token)
         {
             InternalAdd(token, i, false);
         }
 
-        internal void AppendAt(int i, MySqlSyntaxToken token)
+        public void AppendAt(int i, MySqlSyntaxToken token)
         {
             InternalAdd(token, i, true);
         }
 
-        internal List<int> GetLevels()
+        public List<int> GetLevels()
         {
             return _list.Select(x => x.ElevatorLevel).Distinct().Reverse().ToList();
         }
 
-        internal IEnumerable<List<MySqlSyntaxToken>> GetGroupsItemsFromLevel(int level)
+        public IEnumerable<List<MySqlSyntaxToken>> GetGroupsItemsFromLevel(int level)
         {
             var items = _list.Where(x => x.ElevatorLevel == level).ToList();
 
