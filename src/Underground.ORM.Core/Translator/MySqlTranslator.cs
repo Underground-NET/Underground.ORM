@@ -6,9 +6,10 @@ using System.Reflection;
 using Underground.ORM.Core.Attributes;
 using Underground.ORM.Core.Translator.Parameter;
 using Underground.ORM.Core.Translator.Syntax;
-using Underground.ORM.Core.Translator.Syntax.Block;
-using Underground.ORM.Core.Translator.Syntax.Declaration;
-using Underground.ORM.Core.Translator.Syntax.Operator;
+using Underground.ORM.Core.Translator.Syntax.Token.Block;
+using Underground.ORM.Core.Translator.Syntax.Token.Declaration;
+using Underground.ORM.Core.Translator.Syntax.Token.Operator;
+using Underground.ORM.Core.Translator.Syntax.Token.Statement;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -61,7 +62,12 @@ namespace Urderground.ORM.Core.Translator
 
             MySqlSyntax mysqlSyntaxOut = new();
 
-            mysqlSyntaxOut.Append("CREATE ", "FUNCTION ", $"`{functionAttribute.RoutineName}`", new OpenParenthesisToken("("));
+            mysqlSyntaxOut.Append(
+                new CreateStatementToken("CREATE "),
+                new FunctionStatementToken("FUNCTION "),
+                new NameFunctionStatementToken($"`{functionAttribute.RoutineName}`"),
+                new OpenParenthesisToken("(")
+                );
 
             foreach (var token in parametersIn)
             {
@@ -69,12 +75,12 @@ namespace Urderground.ORM.Core.Translator
 
                 mysqlSyntaxOut.Append(new VariableToken($"`{token.Argument}` ", (DbType)dbTypeToken.DbType!));
                 mysqlSyntaxOut.AppendRange(token.DbType);
-                mysqlSyntaxOut.Append(", ");
+                mysqlSyntaxOut.Append(new CommaToken(", "));
             }
             mysqlSyntaxOut.RemoveLast();
 
             mysqlSyntaxOut.AppendLine(new CloseParenthesisToken(")"));
-            mysqlSyntaxOut.AppendLine("RETURNS ", $"{mysqlReturnDbType.DbType}");
+            mysqlSyntaxOut.AppendLine(new ReturnsStatementToken("RETURNS "), $"{mysqlReturnDbType.DbType}");
             mysqlSyntaxOut.AppendLine(new BeginBlockToken("BEGIN"));
 
             foreach (var ds in cds.Members)
@@ -92,7 +98,7 @@ namespace Urderground.ORM.Core.Translator
                 }
             }
 
-            mysqlSyntaxOut.Append(new EndBlockToken("END"), ";");
+            mysqlSyntaxOut.Append(new EndBlockToken("END"), new SemicolonToken(";"));
 
             return new MySqlSyntaxBuilt(method,
                                         functionAttribute.RoutineName,

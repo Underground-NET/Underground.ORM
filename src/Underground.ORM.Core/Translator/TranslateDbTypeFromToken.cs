@@ -1,7 +1,7 @@
 ﻿using System.Data;
 using Underground.ORM.Core.Translator.Syntax;
-using Underground.ORM.Core.Translator.Syntax.Declaration;
-using Underground.ORM.Core.Translator.Syntax.Operator;
+using Underground.ORM.Core.Translator.Syntax.Token.Declaration;
+using Underground.ORM.Core.Translator.Syntax.Token.Operator;
 
 namespace Urderground.ORM.Core.Translator
 {

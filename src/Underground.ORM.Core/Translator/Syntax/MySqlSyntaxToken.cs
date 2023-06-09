@@ -2,6 +2,73 @@
 
 namespace Underground.ORM.Core.Translator.Syntax
 {
+    public class IsToken
+    {
+        public bool DbType { get; set; }
+
+        public bool Var { get; set; }
+
+        public bool String { get; set; }
+
+        public bool VarRef { get; set; }
+
+        public bool CommaConcat { get; set; }
+
+        public bool OpenParenthesis { get; set; }
+
+        public bool CloseParenthesis { get; set; }
+
+        public bool Parenthesis { get; set; }
+
+        public bool Function { get; set; }
+
+        public bool Operator { get; set; }
+
+        public bool Declaration { get; set; }
+
+        public bool Reference { get; set; }
+
+        public bool Attribution { get; set; }
+
+        public bool ConcatFunction { get; set; }
+
+        public bool CoalesceFunction { get; set; }
+
+        public bool CastFunction { get; set; }
+
+        public bool CharFunction { get; set; }
+
+        public bool Marker { get; set; }
+
+        public bool Comment { get; set; }
+
+        public bool Block { get; set; }
+
+        public bool BeginBlock { get; set; }
+
+        public bool EndBlock { get; set; }
+
+        public bool Statement { get; set; }
+
+        public bool ReturnStatement { get; set; }
+
+        public bool Declare { get; set; }
+
+        public bool Default { get; set; }
+
+        public bool Semicolon { get; set; }
+
+        public bool CreateStatement { get; set; }
+
+        public bool FunctionStatement { get; set; }
+
+        public bool NameFunctionStatement { get; set; }
+
+        public bool Comma { get; set; }
+
+        public bool ReturnsStatement { get; set; }
+    }
+
     public class MySqlSyntaxToken : ICloneable
     {
         private DbType? dbType = null;
@@ -20,60 +87,14 @@ namespace Underground.ORM.Core.Translator.Syntax
 
         public int ElevatorLevel { get; set; }
 
-        public virtual bool IsDbType { get; set; }
-
-        public virtual bool IsVar { get; set; }
-
-        public virtual bool IsString { get; set; }
-
-        public virtual bool IsVarRef { get; set; }
-
-        public virtual bool IsCommaConcat { get; set; }
-
-        public virtual bool IsOpenParenthesis { get; set; }
-
-        public virtual bool IsCloseParenthesis { get; set; }
-
-        public virtual bool IsParenthesis { get; set; }
-
-        public virtual bool IsFunction { get; set; }
-
-        public virtual bool IsOperator { get; set; }
-
-        public virtual bool IsDeclaration { get; set; }
-
-        public virtual bool IsReference { get; set; }
-
-        public virtual bool IsAttribution { get; set; }
-
-        public virtual bool IsConcatFunction { get; set; }
-
-        public virtual bool IsCoalesceFunction { get; set; }
-
-        public virtual bool IsCastFunction { get; set; }
-
-        public virtual bool IsCharFunction { get; set; }
-
-        public virtual bool IsMarker { get; set; }
-
-        public virtual bool IsComment { get; set; }
-
-        public virtual bool IsBlock { get; set; }
-
-        public virtual bool IsBeginBlock { get; set; }
-
-        public virtual bool IsEndBlock { get; set; }
-
-        public virtual bool IsStatement { get; set; }
-
-        public virtual bool IsReturnStatement { get; set; }
+        public IsToken Is { get; set; } = new();
 
         public DbType? DbType { 
             get => dbType;
             protected set 
             { 
                 dbType = value;
-                IsString = dbType == System.Data.DbType.String;
+                Is.String = dbType == System.Data.DbType.String;
             } 
         }
 

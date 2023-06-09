@@ -1,7 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Syntax;
-using Underground.ORM.Core.Translator.Syntax.Declaration;
+using Underground.ORM.Core.Translator.Syntax.Token.Declaration;
+using Underground.ORM.Core.Translator.Syntax.Token.Operator;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -81,7 +82,7 @@ namespace Urderground.ORM.Core.Translator
 
                     string variableName = variableDeclarator.Identifier.ValueText;
 
-                    mysqlDeclare.Add(1, "DECLARE ");
+                    mysqlDeclare.Add(1, new DeclareToken("DECLARE "));
                     mysqlDeclare.Add(2, new VariableToken($"`{variableName}` "));
 
                     variablesCount++;
@@ -90,7 +91,7 @@ namespace Urderground.ORM.Core.Translator
                 if (equalsValueClauseSyntax != null)
                 {
                     defaultValue = true;
-                    mysqlDeclare.Add(4, "DEFAULT ");
+                    mysqlDeclare.Add(4, new DefaultToken("DEFAULT "));
                 }
 
                 if (expressionSyntax != null && defaultValue)
@@ -137,7 +138,7 @@ namespace Urderground.ORM.Core.Translator
             var mysqlStatement = mysqlDeclare.OrderBy(x => x.Key).Select(x => x.Value).ToList();
 
             mysqlSyntaxOut.AppendRange(mysqlStatement);
-            mysqlSyntaxOut.AppendLine(";");
+            mysqlSyntaxOut.AppendLine(new SemicolonToken(";"));
 
             mysqlDeclare.Clear();
         }
