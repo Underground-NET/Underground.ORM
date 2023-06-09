@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Underground.ORM.Core.Translator.Syntax;
 
-namespace Underground.ORM.Core.Translator.Syntax.Tests
+namespace Underground.ORM.CoreTests.Translator.Syntax
 {
     [TestClass()]
     public class MySqlSyntaxTests
@@ -27,7 +28,7 @@ namespace Underground.ORM.Core.Translator.Syntax.Tests
         public void AppendLineCTest()
         {
             _syntax.AppendLine("(", "(", "(", "(", "1", "+", "1", ")", ")", ")", ")");
-            
+
             SyntaxIntegrityTest(_syntax, 1);
         }
 
@@ -44,7 +45,7 @@ namespace Underground.ORM.Core.Translator.Syntax.Tests
         {
             _syntax.AppendLine("1", "+", "(");
             _syntax.AppendLine("1", "-", "1", ")");
-            _syntax.AppendLine("*", "5", "+", "("); 
+            _syntax.AppendLine("*", "5", "+", "(");
             _syntax.AppendLine("2", "+", "2", "+", "3", ")");
 
             SyntaxIntegrityTest(_syntax, 4);
@@ -82,7 +83,7 @@ namespace Underground.ORM.Core.Translator.Syntax.Tests
             SyntaxIntegrityTest(_syntax, 4);
         }
 
-        private static void SyntaxIntegrityTest(MySqlSyntax syntax, 
+        private static void SyntaxIntegrityTest(MySqlSyntax syntax,
                                                 int syntaxLineNumbers)
         {
             int currentLineNumber = 1;

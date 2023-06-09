@@ -1,7 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Syntax;
-using Underground.ORM.Core.Translator.Syntax.Statement;
+using Underground.ORM.Core.Translator.Syntax.Token.Operator;
+using Underground.ORM.Core.Translator.Syntax.Token.Statement;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -42,7 +43,7 @@ namespace Urderground.ORM.Core.Translator
             }
 
             mysqlSyntaxOut.AppendRange(mysqlStatement);
-            mysqlSyntaxOut.AppendLine(";");
+            mysqlSyntaxOut.AppendLine(new SemicolonToken(";"));
 
             return mysqlStatement;
         }

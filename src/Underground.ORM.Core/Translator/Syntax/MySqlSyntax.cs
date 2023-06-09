@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 using Underground.ORM.Core.Translator.Pretty;
-using Underground.ORM.Core.Translator.Syntax.Declaration;
-using Underground.ORM.Core.Translator.Syntax.Operator;
-using Underground.ORM.Core.Translator.Syntax.Reference;
+using Underground.ORM.Core.Translator.Syntax.Token.Declaration;
+using Underground.ORM.Core.Translator.Syntax.Token.Operator;
+using Underground.ORM.Core.Translator.Syntax.Token.Reference;
 
 namespace Underground.ORM.Core.Translator.Syntax
 {
@@ -158,7 +158,7 @@ namespace Underground.ORM.Core.Translator.Syntax
                 if (found is not null)
                 {
                     item.Reference = found;
-                    item.IsString = found.IsString;
+                    item.Is.String = found.IsString;
                 }
             }
 
@@ -312,7 +312,7 @@ namespace Underground.ORM.Core.Translator.Syntax
                     if (found is not null)
                     {
                         item.Reference = found;
-                        item.IsString = found.IsString;
+                        item.Is.String = found.IsString;
                     }
                 }
             }

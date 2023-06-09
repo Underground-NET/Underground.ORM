@@ -1,6 +1,6 @@
 ﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Syntax;
-using Underground.ORM.Core.Translator.Syntax.Marker;
+using Underground.ORM.Core.Translator.Syntax.Token.Marker;
 
 namespace Urderground.ORM.Core.Translator
 {

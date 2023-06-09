@@ -4,10 +4,10 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Data;
 using Underground.ORM.Core.Translator.Expression;
 using Underground.ORM.Core.Translator.Syntax;
-using Underground.ORM.Core.Translator.Syntax.Declaration;
-using Underground.ORM.Core.Translator.Syntax.Function;
-using Underground.ORM.Core.Translator.Syntax.Operator;
-using Underground.ORM.Core.Translator.Syntax.Reference;
+using Underground.ORM.Core.Translator.Syntax.Token.Declaration;
+using Underground.ORM.Core.Translator.Syntax.Token.Function;
+using Underground.ORM.Core.Translator.Syntax.Token.Operator;
+using Underground.ORM.Core.Translator.Syntax.Token.Reference;
 
 namespace Urderground.ORM.Core.Translator
 {
@@ -167,12 +167,12 @@ namespace Urderground.ORM.Core.Translator
 
                 if (item == "+")
                 {
-                    bool isStringLeft = item.Previous!.IsString ||
-                        (item.Previous!.Reference is not null && item.Previous!.Reference.IsVar &&
+                    bool isStringLeft = item.Previous!.Is.String ||
+                        (item.Previous!.Reference is not null && item.Previous!.Reference.Is.Var &&
                         ((VariableToken)item.Previous.Reference).DbType == System.Data.DbType.String);
 
-                    bool isStringRight = item.Next!.IsString ||
-                        (item.Next!.Reference is not null && item.Next!.Reference.IsVar &&
+                    bool isStringRight = item.Next!.Is.String ||
+                        (item.Next!.Reference is not null && item.Next!.Reference.Is.Var &&
                         ((VariableToken)item.Next.Reference).DbType == System.Data.DbType.String);
 
                     if (isStringLeft || isStringRight)
@@ -223,7 +223,7 @@ namespace Urderground.ORM.Core.Translator
             {
                 MySqlSyntaxToken item = expression[i];
                 
-                if (item.IsString)
+                if (item.Is.String)
                 {
                     expression.AppendAt(i, new CoalesceFunctionToken("COALESCE"));
                     expression.AppendAt(i + 1, new OpenParenthesisToken("("));

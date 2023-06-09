@@ -1,7 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Underground.ORM.Core.Translator.Syntax;
-using Underground.ORM.Core.Translator.Syntax.Operator;
+using Underground.ORM.Core.Translator.Syntax.Token.Operator;
 
 namespace Urderground.ORM.Core.Translator
 {
