@@ -223,6 +223,12 @@ namespace Underground.ORM.Core.Translator.Syntax
                 InternalAdd(item, -1, false);
         }
 
+        public void AppendRange(List<MySqlSyntaxToken> list)
+        {
+            foreach (var item in list)
+                InternalAdd(item, -1, false);
+        }
+
         public void AppendRange(MySqlSyntax list)
         {
             foreach (var item in list)

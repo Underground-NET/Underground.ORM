@@ -13,10 +13,9 @@ using Underground.ORM.Core.Translator.Syntax.Token.Statement;
 
 namespace Urderground.ORM.Core.Translator
 {
-    public partial class MySqlTranslator
+    public partial class MySqlTranslator2
     {
         
-
         public MySqlSyntaxBuilt TranslateToFunctionCreateStatementSyntax(MethodInfo method)
         {
             var functionAttribute = method.GetCustomAttribute<MySqlFunctionScopeAttribute>();

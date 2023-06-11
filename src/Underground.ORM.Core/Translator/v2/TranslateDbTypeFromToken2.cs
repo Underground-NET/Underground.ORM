@@ -5,10 +5,10 @@ using Underground.ORM.Core.Translator.Syntax.Token.Operator;
 
 namespace Urderground.ORM.Core.Translator
 {
-    public partial class MySqlTranslator
+    public partial class MySqlTranslator2
     {
-        public static MySqlSyntax TranslateDbTypeFromToken(string tokenType,
-                                                           string contentDeclaration)
+        public MySqlSyntax TranslateDbTypeFromToken(string tokenType,
+                                                    string contentDeclaration)
         {
             if (tokenType == "var")
             {
@@ -95,7 +95,7 @@ namespace Urderground.ORM.Core.Translator
                 return new DbTypeToken("FLOAT ", DbType.Single);
             }
             else
-                throw new NotImplementedException($"Declaration type '{contentDeclaration}' not supported");
+                throw new NotImplementedException($"Declaration type '{tokenType}' not supported");
         }
     }
 }

@@ -73,6 +73,8 @@ namespace Underground.ORM.Core.Translator.Syntax
     {
         private DbType? dbType = null;
 
+        public int Order { get; set; }
+
         public string Name { get; private set; }
 
         public string Token { get; protected set; }
@@ -117,6 +119,7 @@ namespace Underground.ORM.Core.Translator.Syntax
         {
             Name = this.GetType().Name;
             NotDefinedToken = Name == nameof(MySqlSyntaxToken);
+            Order = int.MaxValue;
         }
 
         public MySqlSyntaxToken(string token,

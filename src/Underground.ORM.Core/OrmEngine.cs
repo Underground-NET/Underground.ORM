@@ -1,15 +1,35 @@
-﻿using MySqlConnector;
+﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using MySqlConnector;
 using System.Data;
 using System.Reflection;
 using Underground.ORM.Core.Attributes;
 using Underground.ORM.Core.Entity;
+using Underground.ORM.Core.Translator.Extension;
 using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Translator.Syntax.Token.Declaration;
+using Underground.ORM.Core.Translator.Syntax.Token.Operator;
+using Underground.ORM.Core.Translator.Syntax.Token.Statement;
 using Urderground.ORM.Core.Translator;
 
 namespace Underground.ORM.Core
 {
+    public class DeclareVars
+    {
+        public List<MySqlSyntax> MysqlDeclare { get; set; } = new();
+
+        public MySqlSyntaxToken? CurrentDbType { get; set; } = null;
+
+        public MySqlSyntax MysqlExpression { get; set; } = new();
+
+        public bool DefaultValue { get; set; } = false;
+    }
+
     public partial class OrmEngine
     {
+        private readonly MySqlTranslator2 _translator = new();
+
         private static readonly List<(MethodInfo, MySqlFunctionScopeAttribute)> Functions = new();
         private static readonly List<(MethodInfo, MySqlProcedureScopeAttribute)> Procedures = new();
 
@@ -20,14 +40,143 @@ namespace Underground.ORM.Core
 
         public bool EnsureCreateDatabase { get => _ensureCreateDatabase; set => _ensureCreateDatabase = value; }
 
-        public OrmEngine(string connectionString)
+        public MySqlTranslator2 Translator => _translator;
+
+        public OrmEngine(string connectionString) : this()
         {
             _connectionString = connectionString;
         }
 
-        public OrmEngine(MySqlConnectionStringBuilder connectionString)
+        public OrmEngine(MySqlConnectionStringBuilder connectionString) : this()
         {
             _connectionString = connectionString.ToString();
+        }
+
+        public OrmEngine()
+        {
+            
+        }
+
+        public void UseMySqlSyntax()
+        {
+            _translator.ClearAll();
+
+            _translator.AddSyntaxTranslationByAscendant<ExpressionSyntax>(
+                (token, kind, parent, ascendant, vars, span, mysql) =>
+                {
+                    mysql.Append(token.ValueText);
+                });
+
+            _translator.AddSyntaxTranslationByAscendant<ReturnStatementSyntax>(
+                (token, kind, parent, ascendant, vars, span, mysql) =>
+                {
+                    var expression = token.GetAscendantType<ExpressionSyntax>();
+
+                    if (expression != null)
+                    {
+                        _translator.RaiseTranslationByAscendant<ExpressionSyntax>
+                            (token, kind, parent, ascendant, vars, span, mysql);
+                    }
+                    else if (kind == SyntaxKind.ReturnKeyword)
+                    {
+                        mysql.Append(new ReturnsStatementToken("RETURN "));
+                    }
+                    else if (kind == SyntaxKind.SemicolonToken)
+                    {
+                        mysql.AppendLine(new SemicolonToken(";"));
+                    }
+                });
+
+            _translator.AddSyntaxTranslationByAscendant<LocalDeclarationStatementSyntax>(
+                (token, kind, parent, ascendant, vars, span, mysql) =>
+                {
+                    var v = vars.GetVariable<DeclareVars>(new());
+
+                    var previousToken = token.GetPreviousToken();
+                    var nextToken = token.GetNextToken();
+                    var value = token.Value;
+                    var valueText = token.ValueText;
+                    var text = token.Text;
+
+                    var ascendants = token.GetAscendants();
+                    var expression = token.GetAscendantType<ExpressionSyntax>();
+
+                    var predefinedTypeSyntax = parent as PredefinedTypeSyntax;
+
+                    if (kind == SyntaxKind.SemicolonToken ||
+                        kind == SyntaxKind.CommaToken)
+                    {
+                        var dbType = v.MysqlDeclare.SelectMany(x => x).OfType<DbTypeToken>().FirstOrDefault();
+                        if (dbType is null)
+                        {
+                            v.MysqlDeclare.Add(v.CurrentDbType!);
+                        }
+
+                        v.MysqlExpression.ToList().ForEach(x => x.Order = 5);
+                        v.MysqlDeclare.Add(v.MysqlExpression);
+
+                        var ordered = v.MysqlDeclare.SelectMany(x => x).OrderBy(x => x.Order).ToList();
+
+                        mysql.AppendRange(ordered);
+                        mysql.AppendLine(new SemicolonToken(";"));
+
+                        v.DefaultValue = false;
+
+                        v.MysqlExpression = new();
+                        v.MysqlDeclare.Clear();
+
+                        return;
+                    }
+
+                    if (v.DefaultValue && expression != null)
+                    {
+                        _translator.RaiseTranslationByAscendant<ExpressionSyntax>(
+                            token, kind, parent, ascendant, vars, span, v.MysqlExpression);
+
+                        return;
+                    }
+
+                    if (kind == SyntaxKind.IdentifierToken ||
+                        predefinedTypeSyntax != null)
+                    {
+                        if (nextToken.IsKind(SyntaxKind.DotToken)) return;
+
+                        var identifierNameSyntax = parent as IdentifierNameSyntax;
+                        var variableDeclaratorSyntax = parent as VariableDeclaratorSyntax;
+
+                        string tokenType;
+                        if (predefinedTypeSyntax != null)
+                        {
+                            tokenType = predefinedTypeSyntax.Keyword.ValueText;
+                        }
+                        else
+                        {
+                            tokenType = token.ValueText;
+                        }
+
+                        if (identifierNameSyntax != null ||
+                            predefinedTypeSyntax != null)
+                        {
+                            var dbType = _translator.TranslateDbTypeFromToken(tokenType, span);
+                            v.CurrentDbType = dbType.First();
+                            v.CurrentDbType.Order = 3;
+
+                            v.MysqlDeclare.Add(v.CurrentDbType);
+                        }
+
+                        if (variableDeclaratorSyntax != null)
+                        {
+                            v.MysqlDeclare.Add(new DeclareToken("DECLARE ") { Order = 1 });
+                            v.MysqlDeclare.Add(new VariableToken($"`{tokenType}` ", v.CurrentDbType!.DbType!.Value) { Order = 2 });
+                        }
+                    }
+
+                    if (kind == SyntaxKind.EqualsToken)
+                    {
+                        v.MysqlDeclare.Add(new DefaultToken("DEFAULT ") { Order = 4 });
+                        v.DefaultValue = true;
+                    }
+                });
         }
 
         static OrmEngine()
@@ -244,9 +393,7 @@ namespace Underground.ORM.Core
 
         private MySqlSyntaxBuilt BuildFunctionCreateStatement(MethodInfo method)
         {
-            MySqlTranslator translator = new();
-
-            var mysqlSyntaxBuilt = translator.TranslateToFunctionCreateStatementSyntax(method);
+            var mysqlSyntaxBuilt = _translator.TranslateToFunctionCreateStatementSyntax(method);
 
             return mysqlSyntaxBuilt;
         }

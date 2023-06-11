@@ -18,7 +18,14 @@ namespace Underground.ORM.CoreTests
             sb.Database = "underground_orm_tests";
             sb.AllowUserVariables = true;
 
-            return new OrmEngine(sb) { EnsureCreateDatabase = true };
+            var orm = new OrmEngine(sb) 
+            { 
+                EnsureCreateDatabase = true,
+            };
+
+            orm.UseMySqlSyntax();
+
+            return orm;
         });
     }
 }
