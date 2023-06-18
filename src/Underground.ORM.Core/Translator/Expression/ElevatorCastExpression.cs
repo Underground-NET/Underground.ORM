@@ -1,13 +1,13 @@
 ﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Syntax;
 
 namespace Underground.ORM.Core.Translator.Expression
 {
     public class ElevatorCastExpression
     {
-        public MySqlSyntaxToken Function { get; set; }
+        public SyntaxTokenBase Function { get; set; }
 
-        public MySqlSyntax? Alias { get; set; }
+        public SyntaxBase? Alias { get; set; }
 
         public int Level { get; set; }
 

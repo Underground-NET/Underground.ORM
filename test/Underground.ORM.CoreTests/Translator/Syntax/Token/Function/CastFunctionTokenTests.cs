@@ -1,5 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Underground.ORM.Core.Translator.Syntax.Token.Function;
+using Underground.ORM.Core.Syntax.Token.Function;
 
 namespace Underground.ORM.CoreTests.Translator.Syntax.Token.Function
 {
@@ -9,7 +9,7 @@ namespace Underground.ORM.CoreTests.Translator.Syntax.Token.Function
         [TestMethod()]
         public void CastFunctionTokenTest()
         {
-            var token = new CastFunctionToken("CAST");
+            var token = new CastFunctionToken();
 
             Assert.IsTrue(token.IsFunction);
             Assert.IsTrue(token.IsCastFunction);

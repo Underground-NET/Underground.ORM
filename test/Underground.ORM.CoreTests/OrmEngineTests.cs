@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MySqlConnector;
 using Underground.ORM.Core;
+using Underground.ORM.MySql.Extensions;
 
 namespace Underground.ORM.CoreTests
 {
@@ -17,6 +18,7 @@ namespace Underground.ORM.CoreTests
             sb.Password = "12345678";
             sb.Database = "underground_orm_tests";
             sb.AllowUserVariables = true;
+            sb.AllowLoadLocalInfile = true;
 
             var orm = new OrmEngine(sb) 
             { 

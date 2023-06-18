@@ -1,6 +1,6 @@
 ﻿namespace Underground.ORM.Core.Entity
 {
-    public class SampleTableEntity : OrmBaseEntity
+    public class SampleTableEntity : OrmEntityBase
     {
         public string Name { get; set; }
 

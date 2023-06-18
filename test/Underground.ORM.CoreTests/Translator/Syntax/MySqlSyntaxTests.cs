@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Underground.ORM.Core.Translator.Syntax;
+using Underground.ORM.Core.Syntax;
+using Underground.ORM.MySql.Extensions.Syntax;
 
 namespace Underground.ORM.CoreTests.Translator.Syntax
 {
@@ -83,7 +84,7 @@ namespace Underground.ORM.CoreTests.Translator.Syntax
             SyntaxIntegrityTest(_syntax, 4);
         }
 
-        private static void SyntaxIntegrityTest(MySqlSyntax syntax,
+        private static void SyntaxIntegrityTest(SyntaxBase syntax,
                                                 int syntaxLineNumbers)
         {
             int currentLineNumber = 1;
@@ -91,9 +92,9 @@ namespace Underground.ORM.CoreTests.Translator.Syntax
 
             for (int i = 0; i < syntax.Count; i++)
             {
-                MySqlSyntaxToken? previous = i > 0 ? syntax[i - 1] : null;
-                MySqlSyntaxToken current = syntax[i];
-                MySqlSyntaxToken? next = i < syntax.Count - 1 ? syntax[i + 1] : null;
+                SyntaxTokenBase? previous = i > 0 ? syntax[i - 1] : null;
+                SyntaxTokenBase current = syntax[i];
+                SyntaxTokenBase? next = i < syntax.Count - 1 ? syntax[i + 1] : null;
 
                 if (current.Token == "(") elevatorLevel++;
 

@@ -26,6 +26,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Translator\___Obsolete\**" />
+    <EmbeddedResource Remove="Translator\___Obsolete\**" />
+    <None Remove="Translator\___Obsolete\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\doc\logo.png">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>

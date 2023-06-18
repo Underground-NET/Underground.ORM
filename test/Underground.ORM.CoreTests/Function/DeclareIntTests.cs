@@ -2,6 +2,8 @@
 using System.Diagnostics;
 using Underground.ORM.Core;
 using Underground.ORM.Core.Attributes;
+using Underground.ORM.Core.Syntax;
+using Underground.ORM.MySql.Extensions.Syntax;
 
 namespace Underground.ORM.CoreTests.Function
 {

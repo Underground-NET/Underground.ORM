@@ -1,5 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Underground.ORM.Core.Translator.Syntax.Token.Marker;
+using Underground.ORM.Core.Syntax.Token.Marker;
 
 namespace Underground.ORM.CoreTests.Translator.Syntax.Token.Marker
 {
@@ -9,7 +9,7 @@ namespace Underground.ORM.CoreTests.Translator.Syntax.Token.Marker
         [TestMethod()]
         public void CommentTokenTest()
         {
-            var token = new CommentToken("# Comment");
+            var token = new CommentLineToken();
 
             Assert.IsTrue(token.IsMarker);
             Assert.IsTrue(token.IsComment);

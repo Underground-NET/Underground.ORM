@@ -1,34 +1,17 @@
 ﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MySqlConnector;
 using System.Data;
 using System.Reflection;
 using Underground.ORM.Core.Attributes;
 using Underground.ORM.Core.Entity;
-using Underground.ORM.Core.Translator.Extension;
-using Underground.ORM.Core.Translator.Syntax;
-using Underground.ORM.Core.Translator.Syntax.Token.Declaration;
-using Underground.ORM.Core.Translator.Syntax.Token.Operator;
-using Underground.ORM.Core.Translator.Syntax.Token.Statement;
-using Urderground.ORM.Core.Translator;
+using Underground.ORM.Core.Syntax;
+using Underground.ORM.Core.Translator;
 
 namespace Underground.ORM.Core
 {
-    public class DeclareVars
-    {
-        public List<MySqlSyntax> MysqlDeclare { get; set; } = new();
-
-        public MySqlSyntaxToken? CurrentDbType { get; set; } = null;
-
-        public MySqlSyntax MysqlExpression { get; set; } = new();
-
-        public bool DefaultValue { get; set; } = false;
-    }
-
     public partial class OrmEngine
     {
-        private readonly MySqlTranslator2 _translator = new();
+        private readonly SqlTranslator _mySqlTranslator = new();
 
         private static readonly List<(MethodInfo, MySqlFunctionScopeAttribute)> Functions = new();
         private static readonly List<(MethodInfo, MySqlProcedureScopeAttribute)> Procedures = new();
@@ -40,143 +23,16 @@ namespace Underground.ORM.Core
 
         public bool EnsureCreateDatabase { get => _ensureCreateDatabase; set => _ensureCreateDatabase = value; }
 
-        public MySqlTranslator2 Translator => _translator;
+        public SqlTranslator MySqlTranslator => _mySqlTranslator;
 
-        public OrmEngine(string connectionString) : this()
+        public OrmEngine(string connectionString)
         {
             _connectionString = connectionString;
         }
 
-        public OrmEngine(MySqlConnectionStringBuilder connectionString) : this()
+        public OrmEngine(MySqlConnectionStringBuilder connectionString)
         {
             _connectionString = connectionString.ToString();
-        }
-
-        public OrmEngine()
-        {
-            
-        }
-
-        public void UseMySqlSyntax()
-        {
-            _translator.ClearAll();
-
-            _translator.AddSyntaxTranslationByAscendant<ExpressionSyntax>(
-                (token, kind, parent, ascendant, vars, span, mysql) =>
-                {
-                    mysql.Append(token.ValueText);
-                });
-
-            _translator.AddSyntaxTranslationByAscendant<ReturnStatementSyntax>(
-                (token, kind, parent, ascendant, vars, span, mysql) =>
-                {
-                    var expression = token.GetAscendantType<ExpressionSyntax>();
-
-                    if (expression != null)
-                    {
-                        _translator.RaiseTranslationByAscendant<ExpressionSyntax>
-                            (token, kind, parent, ascendant, vars, span, mysql);
-                    }
-                    else if (kind == SyntaxKind.ReturnKeyword)
-                    {
-                        mysql.Append(new ReturnsStatementToken("RETURN "));
-                    }
-                    else if (kind == SyntaxKind.SemicolonToken)
-                    {
-                        mysql.AppendLine(new SemicolonToken(";"));
-                    }
-                });
-
-            _translator.AddSyntaxTranslationByAscendant<LocalDeclarationStatementSyntax>(
-                (token, kind, parent, ascendant, vars, span, mysql) =>
-                {
-                    var v = vars.GetVariable<DeclareVars>(new());
-
-                    var previousToken = token.GetPreviousToken();
-                    var nextToken = token.GetNextToken();
-                    var value = token.Value;
-                    var valueText = token.ValueText;
-                    var text = token.Text;
-
-                    var ascendants = token.GetAscendants();
-                    var expression = token.GetAscendantType<ExpressionSyntax>();
-
-                    var predefinedTypeSyntax = parent as PredefinedTypeSyntax;
-
-                    if (kind == SyntaxKind.SemicolonToken ||
-                        kind == SyntaxKind.CommaToken)
-                    {
-                        var dbType = v.MysqlDeclare.SelectMany(x => x).OfType<DbTypeToken>().FirstOrDefault();
-                        if (dbType is null)
-                        {
-                            v.MysqlDeclare.Add(v.CurrentDbType!);
-                        }
-
-                        v.MysqlExpression.ToList().ForEach(x => x.Order = 5);
-                        v.MysqlDeclare.Add(v.MysqlExpression);
-
-                        var ordered = v.MysqlDeclare.SelectMany(x => x).OrderBy(x => x.Order).ToList();
-
-                        mysql.AppendRange(ordered);
-                        mysql.AppendLine(new SemicolonToken(";"));
-
-                        v.DefaultValue = false;
-
-                        v.MysqlExpression = new();
-                        v.MysqlDeclare.Clear();
-
-                        return;
-                    }
-
-                    if (v.DefaultValue && expression != null)
-                    {
-                        _translator.RaiseTranslationByAscendant<ExpressionSyntax>(
-                            token, kind, parent, ascendant, vars, span, v.MysqlExpression);
-
-                        return;
-                    }
-
-                    if (kind == SyntaxKind.IdentifierToken ||
-                        predefinedTypeSyntax != null)
-                    {
-                        if (nextToken.IsKind(SyntaxKind.DotToken)) return;
-
-                        var identifierNameSyntax = parent as IdentifierNameSyntax;
-                        var variableDeclaratorSyntax = parent as VariableDeclaratorSyntax;
-
-                        string tokenType;
-                        if (predefinedTypeSyntax != null)
-                        {
-                            tokenType = predefinedTypeSyntax.Keyword.ValueText;
-                        }
-                        else
-                        {
-                            tokenType = token.ValueText;
-                        }
-
-                        if (identifierNameSyntax != null ||
-                            predefinedTypeSyntax != null)
-                        {
-                            var dbType = _translator.TranslateDbTypeFromToken(tokenType, span);
-                            v.CurrentDbType = dbType.First();
-                            v.CurrentDbType.Order = 3;
-
-                            v.MysqlDeclare.Add(v.CurrentDbType);
-                        }
-
-                        if (variableDeclaratorSyntax != null)
-                        {
-                            v.MysqlDeclare.Add(new DeclareToken("DECLARE ") { Order = 1 });
-                            v.MysqlDeclare.Add(new VariableToken($"`{tokenType}` ", v.CurrentDbType!.DbType!.Value) { Order = 2 });
-                        }
-                    }
-
-                    if (kind == SyntaxKind.EqualsToken)
-                    {
-                        v.MysqlDeclare.Add(new DefaultToken("DEFAULT ") { Order = 4 });
-                        v.DefaultValue = true;
-                    }
-                });
         }
 
         static OrmEngine()
@@ -257,7 +113,7 @@ namespace Underground.ORM.Core
             }
         }
 
-        public async Task EnsureConnectedAync(CancellationToken ct)
+        public async Task EnsureConnectedAsync(CancellationToken ct)
         {
             if (_connection == null || _connection.State == ConnectionState.Closed)
             {
@@ -267,31 +123,31 @@ namespace Underground.ORM.Core
 
         public async Task<MySqlCommand> GetCommandAsync(CancellationToken ct = default)
         {
-            await EnsureConnectedAync(ct);
+            await EnsureConnectedAsync(ct);
             return _connection.CreateCommand();
         }
 
-        public void Insert<T>(T model) where T : OrmBaseEntity
+        public void Insert<T>(T model) where T : OrmEntityBase
         {
 
         }
 
-        public void InsertIgnore<T>(T model) where T : OrmBaseEntity
+        public void InsertIgnore<T>(T model) where T : OrmEntityBase
         {
 
         }
 
-        public void Update<T>(T model) where T : OrmBaseEntity
+        public void Update<T>(T model) where T : OrmEntityBase
         {
 
         }
 
-        public void UpdateOnDuplicateKey<T>(T model) where T : OrmBaseEntity
+        public void UpdateOnDuplicateKey<T>(T model) where T : OrmEntityBase
         {
 
         }
 
-        public void Delete<T>(T model) where T : OrmBaseEntity
+        public void Delete<T>(T model) where T : OrmEntityBase
         {
 
         }
@@ -338,7 +194,7 @@ namespace Underground.ORM.Core
 
             if (functionAttribute != null)
             {
-                await EnsureConnectedAync(ct);
+                await EnsureConnectedAsync(ct);
 
                 var command = await GetCommandAsync(ct);
 
@@ -361,50 +217,50 @@ namespace Underground.ORM.Core
 
         #region BuildCreateFunctionStatement
 
-        public MySqlSyntaxBuilt BuildCreateFunctionStatement<TReturn>(Func<TReturn> function)
+        public SyntaxBuiltBase BuildCreateFunctionStatement<TReturn>(Func<TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        public MySqlSyntaxBuilt BuildCreateFunctionStatement<T1, TReturn>(Func<T1, TReturn> function)
+        public SyntaxBuiltBase BuildCreateFunctionStatement<T1, TReturn>(Func<T1, TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        public MySqlSyntaxBuilt BuildFunctionCreateStatement<T1, T2, TReturn>(Func<T1, T2, TReturn> function)
+        public SyntaxBuiltBase BuildFunctionCreateStatement<T1, T2, TReturn>(Func<T1, T2, TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        public MySqlSyntaxBuilt BuildCreateFunctionStatement<T1, T2, T3, TReturn>(Func<T1, T2, T3, TReturn> function)
+        public SyntaxBuiltBase BuildCreateFunctionStatement<T1, T2, T3, TReturn>(Func<T1, T2, T3, TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        public MySqlSyntaxBuilt BuildCreateFunctionStatement<T1, T2, T3, T4, TReturn>(Func<T1, T2, T3, T4, TReturn> function)
+        public SyntaxBuiltBase BuildCreateFunctionStatement<T1, T2, T3, T4, TReturn>(Func<T1, T2, T3, T4, TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        public MySqlSyntaxBuilt BuildCreateFunctionStatement<T1, T2, T3, T4, T5, TReturn>(Func<T1, T2, T3, T4, T5, TReturn> function)
+        public SyntaxBuiltBase BuildCreateFunctionStatement<T1, T2, T3, T4, T5, TReturn>(Func<T1, T2, T3, T4, T5, TReturn> function)
         {
             return BuildFunctionCreateStatement(function.GetMethodInfo());
         }
 
-        private MySqlSyntaxBuilt BuildFunctionCreateStatement(MethodInfo method)
+        private SyntaxBuiltBase BuildFunctionCreateStatement(MethodInfo method)
         {
-            var mysqlSyntaxBuilt = _translator.TranslateToFunctionCreateStatementSyntax(method);
+            var syntaxBuilt = _mySqlTranslator.TranslateToFunctionCreateStatementSyntax(method);
 
-            return mysqlSyntaxBuilt;
+            return syntaxBuilt!;
         }
 
         #endregion
 
-        public async Task<int> UpdateDatabaseAsync(MySqlSyntaxBuilt mysqlSyntax, CancellationToken ct = default)
+        public async Task<int> UpdateDatabaseAsync(SyntaxBuiltBase syntax, CancellationToken ct = default)
         {
-            var functionAttribute = mysqlSyntax.Method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
+            var functionAttribute = syntax.Method.GetCustomAttribute<MySqlFunctionScopeAttribute>();
 
-            await EnsureConnectedAync(ct);
+            await EnsureConnectedAsync(ct);
 
             if (functionAttribute != null)
             {
@@ -412,7 +268,7 @@ namespace Underground.ORM.Core
             Retry:
 
                 command.CommandType = CommandType.Text;
-                command.CommandText = mysqlSyntax.Statement;
+                command.CommandText = syntax.Statement;
 
                 try
                 {
@@ -422,16 +278,17 @@ namespace Underground.ORM.Core
                 {
                     if (ex.ErrorCode == MySqlErrorCode.StoredProcedureAlreadyExists)
                     {
-                        command.CommandText = $"DROP FUNCTION `{_connection.Database}`.`{mysqlSyntax.RoutineName}`";
+                        command.CommandText = $"DROP FUNCTION `{_connection.Database}`.`{syntax.RoutineName}`";
                         await command.ExecuteNonQueryAsync(ct);
                         goto Retry;
                     }
+                    
 
                     throw;
                 }
             }
 
-            throw new Exception($"Scope attribute not set for method '{mysqlSyntax.Method.Name}'");
+            throw new Exception($"Scope attribute not set for method '{syntax.Method.Name}'");
         }
     }
 }

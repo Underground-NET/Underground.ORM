@@ -1,5 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Underground.ORM.Core.Translator.Syntax.Token.Block;
+using Underground.ORM.Core.Syntax.Token.Block;
 
 namespace Underground.ORM.CoreTests.Translator.Syntax.Token.Block
 {
@@ -9,7 +9,7 @@ namespace Underground.ORM.CoreTests.Translator.Syntax.Token.Block
         [TestMethod()]
         public void BeginBlockTokenTest()
         {
-            var token = new BeginBlockToken("BEGIN");
+            var token = new BeginBlockToken();
 
             Assert.IsTrue(token.IsBlock);
             Assert.IsTrue(token.IsBeginBlock);

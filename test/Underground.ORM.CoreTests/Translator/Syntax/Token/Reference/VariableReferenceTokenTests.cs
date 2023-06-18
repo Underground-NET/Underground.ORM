@@ -1,5 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Underground.ORM.Core.Translator.Syntax.Token.Reference;
+using Underground.ORM.Core.Syntax.Token.Reference;
 
 namespace Underground.ORM.CoreTests.Translator.Syntax.Token.Reference
 {

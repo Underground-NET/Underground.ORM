@@ -1,5 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Underground.ORM.Core.Translator.Syntax.Token.Operator;
+using Underground.ORM.Core.Syntax.Token.Operator;
 
 namespace Underground.ORM.CoreTests.Translator.Syntax.Token.Operator
 {
@@ -9,7 +9,7 @@ namespace Underground.ORM.CoreTests.Translator.Syntax.Token.Operator
         [TestMethod()]
         public void AttributionTokenTest()
         {
-            var token = new AttributionToken("=");
+            var token = new AttributionToken();
 
             Assert.IsTrue(token.IsOperator);
             Assert.IsTrue(token.IsAttribution);

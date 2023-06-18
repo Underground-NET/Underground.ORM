@@ -1,6 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Data;
-using Underground.ORM.Core.Translator.Syntax.Token.Declaration;
+using Underground.ORM.Core.Syntax.Token.Declaration;
 
 namespace Underground.ORM.CoreTests.Translator.Syntax.Token.Declaration
 {

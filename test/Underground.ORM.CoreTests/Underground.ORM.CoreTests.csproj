@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Underground.ORM.Core\Underground.ORM.Core.csproj" />
+    <ProjectReference Include="..\..\src\Underground.ORM.MySql.Extensions\Underground.ORM.MySql.Extensions.csproj" />
   </ItemGroup>
 
 </Project>
